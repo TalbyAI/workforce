@@ -1,0 +1,37 @@
+{
+  "name": "talby-workforce",
+  "version": "0.0.1",
+  "private": true,
+  "description": "",
+  "scripts": {
+    "build": "pnpm -r --if-present run build",
+    "cli": "node ./apps/cli/dist/index.mjs",
+    "test": "vitest run",
+    "check": "pnpm run check:code && pnpm run check:md",
+    "fix": "pnpm run fix:code && pnpm run fix:md",
+    "check:code": "tsc --noEmit && eslint . && prettier --check .",
+    "fix:code": "tsc --noEmit && eslint . --fix && prettier --write .",
+    "fix:code:files": "node ./scripts/fix-code-files.mjs",
+    "check:md": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\"",
+    "fix:md": "markdownlint-cli2 --fix \"**/*.md\" \"#**/node_modules\"",
+    "fix:md:files": "node ./scripts/fix-md-files.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.33.2",
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@types/node": "catalog:",
+    "effect": "catalog:",
+    "eslint": "catalog:",
+    "globals": "catalog:",
+    "markdownlint-cli2": "catalog:",
+    "prettier": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
