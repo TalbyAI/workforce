@@ -17,7 +17,7 @@ The Talby policy boundary that defines Stage Vocabulary, Eligibility Rules, and 
 _Avoid_: integration connection, single tracker board
 
 **Participant**:
-A human or Agent identity that contributes to or queries a Conversation.
+A conversation participant identity that contributes to or queries a Conversation.
 _Avoid_: anonymous sender, worker session
 
 **Operator**:
@@ -53,7 +53,7 @@ The writable branch or equivalent head that Talby uses to produce the primary Pu
 _Avoid_: repository profile, task id
 
 **Conversation**:
-A task-scoped collaborative thread of messages and memory updates involving humans and Agent Instances.
+A task-scoped collaborative thread of messages and memory updates involving Participants.
 _Avoid_: feature-wide log, finished-only session
 
 **Memory Thread**:
@@ -204,6 +204,12 @@ _Avoid_: inferred conclusion, synthetic organizational insight
 A Talby-internal unit of work derived from a Task and coordinated under that Task's active Claim.
 _Avoid_: external child issue, second task claim
 
+## Subtypes
+
+- An **Operator** is a subtype of **Participant**
+- In v1, an **Operator** is human
+- An **Agent Instance** is a subtype of **Participant**
+
 ## Relationships
 
 - A **Task** originates in exactly one **External Tracker**
@@ -238,10 +244,7 @@ _Avoid_: external child issue, second task claim
 - A **Conversation** belongs to exactly one **Workspace** through its **Task**
 - A **Conversation** maps to exactly one canonical **Memory Thread** in the external memory system
 - A **Conversation** may involve zero or more **Participants**
-- A **Conversation** may involve zero or more **Operators**
 - A **Conversation** may involve zero or more **Workflow Runs**
-- A **Conversation** may involve zero or more humans
-- A **Conversation** may involve zero or more **Agent Instances**
 - A **Conversation** begins when the **Task** is ingested into Talby
 - A **Conversation** normally ends when the **Task** reaches terminal closure in Talby
 - A **Conversation** may reopen if the same **Task** is reactivated
@@ -403,13 +406,13 @@ _Avoid_: external child issue, second task claim
 > **Dev:** "Does a **Prompt** declare its capability expectations too?"
 > **Domain expert:** "Yes. A **Prompt** declares the required **Capability Profiles** alongside its target **Agent**."
 > **Dev:** "What is the primary unit of memory ingestion?"
-> **Domain expert:** "A **Conversation** is the primary unit. It belongs to a **Task**, starts when the **Task** is ingested into Talby, and grows as humans and **Agent Instances** add messages, comments, and updates."
+> **Domain expert:** "A **Conversation** is the primary unit. It belongs to a **Task**, starts when the **Task** is ingested into Talby, and grows as **Participants** add messages, comments, and updates."
 > **Dev:** "What happens if the **Task** is completed and later reactivated?"
 > **Domain expert:** "Use one **Conversation** per **Task** lifecycle and reopen that same **Conversation** if the **Task** is reactivated."
 > **Dev:** "How does Talby scope memory retrieval?"
 > **Domain expert:** "Talby sends the issuing **Participant** identity plus the **Conversation** and **Workspace** context in each **Memory Query**. The external memory system enforces filtering and may return literal messages from other participants or inferred conclusions from **Organization Memory**."
 > **Dev:** "What gets written into memory automatically?"
-> **Domain expert:** "Talby defines a baseline **Memory Feed** for each **Conversation**. It automatically ingests task ingestion data, task comments and updates, worker and human conversation messages, claim lifecycle events, handoff events, and links to artifacts or evidence."
+> **Domain expert:** "Talby defines a baseline **Memory Feed** for each **Conversation**. It automatically ingests task ingestion data, task comments and updates, conversation messages from **Participants**, claim lifecycle events, handoff events, and links to artifacts or evidence."
 > **Dev:** "Do we store full artifact contents in memory?"
 > **Domain expert:** "Not by default. Memory stores artifact references plus an **Artifact Summary**, while raw artifact contents stay in their source system."
 > **Dev:** "Do inferred summaries and conclusions become memory automatically?"
