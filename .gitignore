@@ -155,4 +155,4 @@ vite.config.ts.timestamp-*
 .vite/
 
 # Context Mode files
-.github/context-mode/
+.github/context-mode
