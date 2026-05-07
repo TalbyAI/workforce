@@ -20,7 +20,8 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@talby/core": ["packages/core/src/index.ts"]
+      "@talby/workforce-core": ["packages/domain/src/index.ts"],
+      "@talby/workforce-application": ["packages/application/src/index.ts"]
     }
   }
 }

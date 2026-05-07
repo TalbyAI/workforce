@@ -1,0 +1,25 @@
+{
+  "name": "@talby/workforce-application",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "effect": "catalog:",
+    "@talby/workforce-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
+  }
+}
