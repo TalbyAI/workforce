@@ -1,7 +1,10 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    "plugins": [
+      { "name": "@effect/language-service" }
+    ]
   },
   "include": ["apps/**/*.ts", "packages/**/*.ts"],
   "exclude": ["**/dist/**", "**/coverage/**", "node_modules"]
