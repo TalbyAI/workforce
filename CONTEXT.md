@@ -124,12 +124,8 @@ _Avoid_: permanent assignment, reservation
 A Talby infrastructure runtime that hosts execution but does not own task responsibility in the domain model.
 _Avoid_: claim owner, business actor
 
-**Capability Profile**:
-A reusable set of Skills and Tools that defines what an agent can do.
-_Avoid_: single prompt, runtime instance
-
 **Skill**:
-An instruction folder that teaches Talby how to perform a specific kind of work.
+An instruction folder that teaches Talby how to perform a specific kind of work. A Skill may be available during execution and may also be directly invocable when its metadata allows it.
 _Avoid_: tool configuration, persona
 
 **Tool**:
@@ -137,7 +133,7 @@ A configured integration, such as an MCP or CLI plus the guidance needed to use 
 _Avoid_: skill, persona
 
 **Agent**:
-A persona that has access to one or more Capability Profiles.
+A persona that declares its own set of Tools and may work with one or more Skills made available by a Workflow or step configuration.
 _Avoid_: runtime owner, skill bundle
 
 **Prompt**:
@@ -145,7 +141,7 @@ A versioned directed command for an Agent with a narrower goal than simply invok
 _Avoid_: persona, workflow run, ad hoc runtime instruction
 
 **Agent Repository**:
-A dedicated repository that stores Talby's agents, prompts, capability profiles, skills, and tools.
+A dedicated repository that stores Talby's agents, prompts, skills, and tools.
 _Avoid_: write repository, task repository
 
 **Custom Agent Repository**:
@@ -153,7 +149,7 @@ A separate repository used when a workspace needs agent definitions that differ 
 _Avoid_: workspace override inside the shared agent repository
 
 **Evaluation**:
-A defined assessment used to measure the quality or fitness of a Capability Profile, Agent, or Prompt.
+A defined assessment used to measure the quality or fitness of a Skill, Agent, or Prompt.
 _Avoid_: ad hoc opinion, runtime outcome
 
 **Workflow**:
@@ -289,22 +285,31 @@ _Avoid_: external child issue, second task claim
 - A **Workflow Run** targets exactly one **Task** or one **Subtask**
 - A **Workflow Run** may spawn zero or more **Agent Instances**
 - A **Workflow Run** may invoke one or more **Agents**
+- A **Workflow** may declare zero or more default **Agents** for its steps
+- A **Workflow** may declare zero or more default **Skills** for its steps
 - A **Workflow** step may invoke a predefined **Prompt** with additional parameters or free-form text
-- A **Workflow** step may invoke an **Agent** directly with free-form text
-- An **Agent** may have access to one or more **Capability Profiles**
-- A **Capability Profile** contains one or more **Skills**
-- A **Capability Profile** contains zero or more **Tools**
-- A **Capability Profile** may include one or more other **Capability Profiles**
-- An **Agent** receives **Tool** access only through its **Capability Profiles**
-- A **Capability Profile** may have zero or more **Evaluations**
+- A **Workflow** step may fix exactly one primary **Agent** for direct execution
+- The primary **Agent** of a **Workflow** step must belong to the step's effective **Agents** set
+- A **Workflow** step may invoke its primary **Agent** with ad hoc text or with one directly invocable **Skill**
+- A **Workflow** step may combine one directly invocable **Skill** with additional ad hoc text in the same invocation
+- A **Workflow** step may make one or more **Skills** available during execution
+- A **Workflow** step may explicitly declare **Skills** that were not declared by its **Workflow**
+- A directly invocable **Skill** used as the base instruction of a **Workflow** step becomes part of the step's effective **Skills** set
+- A **Workflow** step may make one or more additional **Agents** available for subagent use during execution
+- A **Workflow** step may explicitly declare **Agents** that were not declared by its **Workflow**
+- A **Workflow** step may override the default **Agents** and **Skills** declared by its **Workflow** using explicit `replace` or `merge` semantics
+- A directly invocable **Skill** may be invoked explicitly by name without removing the other available **Skills** from the step
+- A **Skill** may be available during execution without being directly invocable
+- A **Skill** may be used by any **Agent** without agent-specific compatibility metadata
+- An **Agent** declares zero or more **Tools**
+- A **Skill** may have zero or more **Evaluations**
 - An **Agent** may have zero or more **Evaluations**
 - A **Prompt** targets exactly one **Agent**
 - A **Prompt** declares the **Agent** it targets
-- A **Prompt** declares one or more required **Capability Profiles**
 - A **Prompt** may have zero or more **Evaluations**
-- An **Agent Repository** stores one or more **Agents**, **Prompts**, **Capability Profiles**, **Skills**, and **Tools**
+- An **Agent Repository** stores one or more **Agents**, **Prompts**, **Skills**, and **Tools**
 - An **Agent Repository** stores one or more **Evaluations**
-- A **Custom Agent Repository** stores workspace-specific **Agents**, **Prompts**, **Capability Profiles**, **Skills**, **Tools**, and **Evaluations**
+- A **Custom Agent Repository** stores workspace-specific **Agents**, **Prompts**, **Skills**, **Tools**, and **Evaluations**
 - A **Workflow Run** may launch zero or more **Child Workflow Invocations**
 - A completed **Workflow Run** has exactly one **Workflow Run Outcome**
 - A **Child Workflow Invocation** belongs to exactly one parent **Workflow Run**
@@ -371,8 +376,8 @@ _Avoid_: external child issue, second task claim
 > **Domain expert:** "No. The primary **Pull Request** may be opened early and updated incrementally while the **Workflow Run** is still executing."
 > **Dev:** "If a **Workflow Run** hands off the **Task**, do we open a new primary **Pull Request** for the next run?"
 > **Domain expert:** "No by default. The primary **Pull Request** stays with the **Task** across serial **Workflow Runs** and handoffs unless policy explicitly requires a new one."
-> **Dev:** "What is the reusable unit of agent capability?"
-> **Domain expert:** "A **Capability Profile**. It is a reusable set of **Skills** and **Tools** that an **Agent** can access during a **Workflow Run**."
+> **Dev:** "What is the reusable unit of instruction in the agent system?"
+> **Domain expert:** "A **Skill**. It is an instruction folder that Talby may make available during execution and may also expose for direct invocation when its metadata allows it."
 > **Dev:** "Who is the primary UI user in v1?"
 > **Domain expert:** "An **Operator**. The v1 UI is an operations console for supervising Talby work, intervening when needed, and managing task flow."
 > **Dev:** "What does the **Operator** land on first in the UI?"
@@ -385,26 +390,40 @@ _Avoid_: external child issue, second task claim
 > **Domain expert:** "Yes. An **Operator** may post directly into the **Conversation** in v1."
 > **Dev:** "What actions does the **Operator** get from the task view in v1?"
 > **Domain expert:** "A minimal **Operator Action Set**: post to the **Conversation**, resolve or reopen an **Attention Item**, trigger a **Handoff**, invoke a **Prompt**, invoke an **Agent** with free-form text, and open **Pull Request**, **Repository**, or **External Tracker** links."
-> **Dev:** "What is the difference between **Skills**, **Tools**, **Capability Profiles**, **Agents**, and **Prompts**?"
-> **Domain expert:** "**Skills** are instruction folders for doing specific work. **Tools** are configured MCP or CLI integrations plus usage guidance. **Capability Profiles** group sets of **Skills** and **Tools**. **Agents** are personas with access to one or more **Capability Profiles**. **Prompts** are narrower directed commands aimed at a specific **Agent**."
+> **Dev:** "What is the difference between **Skills**, **Tools**, **Agents**, and **Prompts**?"
+> **Domain expert:** "**Skills** are instruction folders for doing specific work. Some are directly invocable and others are only available for the model to use when needed. **Tools** are configured MCP or CLI integrations plus usage guidance. **Agents** are personas that declare their own **Tools** and operate with the **Skills** made available by workflow configuration. **Prompts** are narrower directed commands aimed at a specific **Agent**."
 > **Dev:** "Where does that setup live?"
 > **Domain expert:** "In an **Agent Repository** of its own, separate from the task write repositories."
 > **Dev:** "How do workflow steps invoke the agent system?"
-> **Domain expert:** "A workflow step may invoke a predefined **Prompt** with parameters or free-form text, or it may select an **Agent** directly and send a non-predefined free-form instruction that uses the agent's persona and capability access."
-> **Dev:** "Can a **Capability Profile** reuse other profiles?"
-> **Domain expert:** "Yes. A **Capability Profile** may include other **Capability Profiles** so shared capability sets do not need to be duplicated."
+> **Domain expert:** "A workflow step fixes one primary **Agent** for direct execution. It may invoke that agent with ad hoc text or with one directly invocable **Skill**. The step may still leave other **Agents** available for subagent use and other **Skills** available for use if needed."
+> **Dev:** "If the step uses a directly invocable **Skill**, can it still add ad hoc text?"
+> **Domain expert:** "Yes. The **Skill** may provide the base instruction and the step may add ad hoc text as supplemental input in the same invocation."
+> **Dev:** "Can the primary **Agent** come from outside the step's available agents?"
+> **Domain expert:** "No. The primary **Agent** must be chosen from the step's effective **Agents** set after workflow defaults and step overrides are resolved."
+> **Dev:** "If a directly invocable **Skill** is used as the base instruction, does it count as part of the step's available skills?"
+> **Domain expert:** "Yes. A directly invocable **Skill** used as the base instruction becomes part of the step's effective **Skills** set even if it was not already listed there."
+> **Dev:** "Can a step use a **Skill** that was not declared by the **Workflow**?"
+> **Domain expert:** "Yes, if the step declares that **Skill** explicitly. What is not allowed is relying on an undeclared global **Skill** implicitly."
+> **Dev:** "Can a step use an **Agent** that was not declared by the **Workflow**?"
+> **Domain expert:** "Yes, if the step declares that **Agent** explicitly. What is not allowed is relying on an undeclared global **Agent** implicitly."
+> **Dev:** "Can a **Skill** restrict which **Agents** may use it?"
+> **Domain expert:** "No. A **Skill** may be used by any **Agent**. Talby does not add non-standard compatibility metadata for agent-specific restrictions."
+> **Dev:** "Can a **Skill** be available in a step without being invocable directly?"
+> **Domain expert:** "Yes. A **Skill** may be available during execution while remaining non-invocable if its metadata says so."
 > **Dev:** "Is any free-form instruction a **Prompt**?"
 > **Domain expert:** "No. A **Prompt** is a versioned reusable asset in the **Agent Repository**. Free-form runtime instructions are invocation input, not a **Prompt** domain object."
-> **Dev:** "Can an **Agent** get **Tools** directly, outside a **Capability Profile**?"
-> **Domain expert:** "No. An **Agent** receives **Tool** access only through its **Capability Profiles**."
+> **Dev:** "Can an **Agent** get **Tools** directly?"
+> **Domain expert:** "Yes. An **Agent** declares its own **Tools** directly."
 > **Dev:** "Where do evaluations belong?"
-> **Domain expert:** "At all three levels. **Capability Profiles**, **Agents**, and **Prompts** may each have their own **Evaluations**."
+> **Domain expert:** "At all three levels. **Skills**, **Agents**, and **Prompts** may each have their own **Evaluations**."
 > **Dev:** "Are **Agents** enabled per workspace?"
 > **Domain expert:** "No by default. **Agents** are globally available. If a workspace needs custom agents, that setup belongs in a separate **Custom Agent Repository**."
 > **Dev:** "When a workflow uses a **Prompt**, does it also need to name the **Agent** separately?"
 > **Domain expert:** "No. A **Prompt** declares the **Agent** it targets, so the workflow does not need to repeat that mapping."
-> **Dev:** "Does a **Prompt** declare its capability expectations too?"
-> **Domain expert:** "Yes. A **Prompt** declares the required **Capability Profiles** alongside its target **Agent**."
+> **Dev:** "If a workflow makes several **Skills** available, can I invoke one directly without losing the others?"
+> **Domain expert:** "Yes. Direct invocation selects one **Skill** explicitly, but the other available **Skills** remain available to the step unless the step configuration overrides them."
+> **Dev:** "If a step changes the workflow defaults, does it replace them or extend them?"
+> **Domain expert:** "Either is allowed, but the step must say which one it means. Use explicit `replace` or `merge` semantics rather than an ambiguous override."
 > **Dev:** "What is the primary unit of memory ingestion?"
 > **Domain expert:** "A **Conversation** is the primary unit. It belongs to a **Task**, starts when the **Task** is ingested into Talby, and grows as **Participants** add messages, comments, and updates."
 > **Dev:** "What happens if the **Task** is completed and later reactivated?"
@@ -470,15 +489,23 @@ _Avoid_: external child issue, second task claim
 - "branch strategy" could be mistaken for workflow-local behavior — resolved: the router selects the **Change Branch** strategy from policy before execution starts.
 - "pull request" could be mistaken for an end-of-run artifact only — resolved: the primary **Pull Request** may be opened early and updated throughout execution.
 - "pull request ownership" could drift from task-level continuity to run-level churn — resolved: the primary **Pull Request** stays with the **Task** across serial handoffs by default.
-- "agent definition" was too thin to carry prompts, skills, and tools coherently — resolved: use **Capability Profile** for reusable sets of **Skills** and **Tools**, and **Agent** for the persona that uses them.
-- "skill", "tool", "capability profile", and "prompt" were starting to blur — resolved: each now has a distinct role in the agent system.
-- "capability profile" could drift into duplicated flat bundles only — resolved: **Capability Profiles** may include other **Capability Profiles**.
+- "agent definition" was too thin to carry prompts, skills, and tools coherently — resolved: **Agent** declares its own **Tools**, while **Skills** remain the reusable instruction unit made available by workflow configuration.
+- "skill", "tool", "agent", and "prompt" were starting to blur — resolved: each now has a distinct role in the agent system.
+- "skill availability" could be confused with explicit invocation — resolved: a **Skill** may be available during execution without being directly invocable.
 - "prompt" could be mistaken for any ad hoc instruction — resolved: **Prompt** means a versioned reusable asset; free-form runtime text is invocation input.
-- "tool access" could be granted through competing paths — resolved: **Tools** are granted to an **Agent** only through **Capability Profiles**.
-- "evaluation ownership" could collapse into one layer only — resolved: **Evaluations** exist at the **Capability Profile**, **Agent**, and **Prompt** levels.
+- "tool access" could be granted through competing paths — resolved: **Tools** are declared directly on an **Agent**.
+- "evaluation ownership" could collapse into one layer only — resolved: **Evaluations** exist at the **Skill**, **Agent**, and **Prompt** levels.
 - "workspace-specific agents" could imply per-workspace toggles in the shared catalog — resolved: **Agents** are globally available by default; workspace-specific variants live in a separate **Custom Agent Repository**.
 - "prompt target" could be repeated in workflow definitions — resolved: each **Prompt** declares the **Agent** it targets.
-- "prompt capability needs" could stay implicit — resolved: each **Prompt** declares the required **Capability Profiles** it expects.
+- "direct skill use" could be confused with replacing the step configuration — resolved: directly invoking one available **Skill** does not remove the other **Skills** already available to the step.
+- "step override" could be interpreted inconsistently across adapters — resolved: a step must use explicit `replace` or `merge` semantics when changing workflow-default **Agents** or **Skills**.
+- "step invocation" could blur the primary executor with the supporting capabilities — resolved: a step fixes exactly one primary **Agent**, but may still expose other **Agents** for subagent use and other **Skills** as available execution support.
+- "skill invocation input" could be interpreted as either skill-only or free-text-only — resolved: a step may combine one directly invocable **Skill** with supplemental ad hoc text in the same invocation.
+- "primary agent selection" could bypass workflow-level configuration — resolved: the primary **Agent** must be chosen from the step's effective **Agents** set after defaults and overrides are applied.
+- "base skill inclusion" could be inconsistent with the step's available capabilities — resolved: a directly invocable **Skill** used as the base instruction becomes part of the step's effective **Skills** set.
+- "skill compatibility" could drift into vendor-specific metadata — resolved: any **Agent** may use any **Skill**, and Talby does not add non-standard compatibility metadata for agent-specific restrictions.
+- "step-level skill declaration" could be confused with implicit global discovery — resolved: a step may declare a **Skill** not present on the **Workflow**, but it must declare that **Skill** explicitly.
+- "step-level agent declaration" could be confused with implicit global discovery — resolved: a step may declare an **Agent** not present on the **Workflow**, but it must declare that **Agent** explicitly.
 - "memory ingestion" could drift down to raw messages only — resolved: **Conversation** is the primary ingestion unit, and it accumulates **Memory Records** incrementally.
 - "conversation" could be mistaken for a feature-wide thread — resolved: a **Conversation** is scoped to one **Task**, not to an entire feature.
 - "conversation end" could imply permanent closure — resolved: a **Conversation** normally ends with terminal task closure but may reopen if the **Task** is reactivated.
