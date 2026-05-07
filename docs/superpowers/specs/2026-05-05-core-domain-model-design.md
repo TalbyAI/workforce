@@ -53,7 +53,7 @@ If these rules are not centralized first, they will leak into workflow handlers,
 ## Design Principles
 
 1. Domain rules live in `@talby/domain`.
-2. Domain transitions return `Effect` values. Most transitions have `R = never`; time-sensitive transitions may carry a `WallClock` service in `R`.
+2. Domain transitions return `Effect` values. Most transitions have `R = never`; only transitions that need the current time may carry a `WallClock` service in `R`.
 3. Application use cases orchestrate ports but do not redefine rules.
 4. Infrastructure concerns stay outside `@talby/domain` and `@talby/application`.
 5. Errors use domain language, not generic strings. Both domain and operational errors are modeled as `Data.TaggedError` variants.
@@ -100,7 +100,7 @@ It also defines pure transition functions that enforce invariants. Examples:
 - a failed Workflow Run creates at least one Attention Item
 - a Task has at most one active Workflow Run in v1
 
-Domain transition functions return `Effect` values. Most transitions return `Effect<{ nextState: TaskLifecycleState; facts: ReadonlyArray<DomainFact> }, DomainError, never>`. Time-sensitive transitions such as `renewLease` and `checkClaimEligibility` may carry a `WallClock` service in `R` to access the current time from context. No domain transition has an `R` channel beyond `WallClock`. The domain layer does not talk to repositories or any other external systems.
+Domain transition functions return `Effect` values. Most transitions return `Effect<{ nextState: TaskLifecycleState; facts: ReadonlyArray<DomainFact> }, DomainError, never>`. Only transitions that need the current time, such as `claimTask` and `renewLease`, may carry a `WallClock` service in `R` to access it from context. Read-only predicates such as `checkClaimEligibility` keep `R = never`. No domain transition has an `R` channel beyond `WallClock`. The domain layer does not talk to repositories or any other external systems.
 
 ### Application Layer
 
@@ -289,7 +289,7 @@ Loads and saves `TaskLifecycleState`. It may later support optimistic concurrenc
 
 ### WallClock
 
-Provides the current time for lease creation, lease renewal, and timeout-sensitive validation. The `WallClock` `Context.Tag` is defined in `@talby/domain` so domain transitions can declare it in their `R` channel without depending on `@talby/application`. The `@talby/application` package provides a `Layer.effect` backed by Effect's built-in `Clock` service.
+Provides the current time for lease creation, lease renewal, and other time-sensitive transitions that need it. The `WallClock` `Context.Tag` is defined in `@talby/domain` so domain transitions can declare it in their `R` channel without depending on `@talby/application`. The `@talby/application` package provides a `Layer.effect` backed by Effect's built-in `Clock` service.
 
 ### IdGenerator
 
@@ -454,7 +454,7 @@ The following implementation decisions were made during design review and are bi
 | --- | --------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | 1   | Domain function return type | `Effect<..., DomainError, R>` throughout                                                     | Plain discriminated union `{ ok: true, ... } \| { ok: false, ... }`; thin adapter re-wrap      |
 | 2   | Package structure           | `@talby/domain` + `@talby/application`; `@talby/core` removed                                | Single `@talby/core` package; subpath exports split (`@talby/core/domain`); umbrella re-export |
-| 3   | Domain `R` channel          | `R = never` by default; `WallClock` service allowed for time-sensitive transitions               | Full service graph in domain `R`; per-function hybrid (most `never`, some `WallClock`)             |
+| 3   | Domain `R` channel          | `R = never` by default; only transitions that need current time may require `WallClock` in `R` | `R = never` for every transition; arbitrary or full service graph dependencies in domain `R` |
 | 4   | Branded identifiers         | `Schema.String.pipe(Schema.brand(...))` from `effect/Schema`                                 | Plain TypeScript intersection brands; `Data.TaggedClass` id objects                            |
 | 5   | Domain errors               | `Data.TaggedError` variants; `DomainError` union alias                                       | Plain discriminated union with `_tag` strings; `Schema.TaggedStruct`                           |
 | 6   | Application ports           | `Context.Tag` service classes; `Layer.succeed` / `Layer.effect`                              | Plain TypeScript interfaces as function arguments; hybrid (core tags, side-effect callbacks)   |
