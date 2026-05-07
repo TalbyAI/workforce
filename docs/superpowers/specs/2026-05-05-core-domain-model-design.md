@@ -5,7 +5,7 @@
 - Date: 2026-05-05
 - Updated: 2026-05-07
 - Scope: Core domain and workflow lifecycle first slice
-- Target packages: `@talby/domain`, `@talby/application`
+- Target packages: `@talby/workforce-domain`, `@talby/workforce-application`
 - Chosen style: Effect-native functional domain with explicit use-case modules
 
 ## Goal
@@ -16,7 +16,7 @@ This slice covers domain types and application-service ports. It does not define
 
 ## Why This Slice First
 
-The current repository has a strong domain language in [CONTEXT.md](../../CONTEXT.md) but no implementation in `@talby/domain` or `@talby/application` yet. The first useful boundary is therefore the core lifecycle model that governs how a Task moves through claim and execution state.
+The current repository has a strong domain language in [CONTEXT.md](../../CONTEXT.md) but no implementation in `@talby/workforce-domain` or `@talby/workforce-application` yet. The first useful boundary is therefore the core lifecycle model that governs how a Task moves through claim and execution state.
 
 That model is foundational because all of the following depend on it:
 
@@ -52,16 +52,16 @@ If these rules are not centralized first, they will leak into workflow handlers,
 
 ## Design Principles
 
-1. Domain rules live in `@talby/domain`.
+1. Domain rules live in `@talby/workforce-domain`.
 2. Domain transitions return `Effect` values. Most transitions have `R = never`; only transitions that need the current time may carry a `WallClock` service in `R`.
 3. Application use cases orchestrate ports but do not redefine rules.
-4. Infrastructure concerns stay outside `@talby/domain` and `@talby/application`.
+4. Infrastructure concerns stay outside `@talby/workforce-domain` and `@talby/workforce-application`.
 5. Errors use domain language, not generic strings. Both domain and operational errors are modeled as `Data.TaggedError` variants.
 6. Tests should read like executable domain examples.
 
 ## Architecture
 
-The first slice should define two packages: `@talby/domain` for the domain layer and `@talby/application` for the application layer. `@talby/application` declares `@talby/domain` as a dependency. The previously proposed `@talby/core` package is not used; there is no umbrella re-export package in this slice.
+The first slice should define two packages: `@talby/workforce-domain` for the domain layer and `@talby/workforce-application` for the application layer. `@talby/workforce-application` declares `@talby/workforce-domain` as a dependency. The previously proposed `@talby/core` package is not used; there is no umbrella re-export package in this slice.
 
 This slice should also stay aligned with the current language in [CONTEXT.md](../../CONTEXT.md):
 
@@ -71,7 +71,7 @@ This slice should also stay aligned with the current language in [CONTEXT.md](..
 - a `Workflow` and its steps may declare available `Agents` and `Skills`, with explicit `replace` or `merge` semantics when a step overrides workflow defaults
 - a step may declare `Agents` or `Skills` that were not declared at workflow level, but it must declare them explicitly rather than relying on implicit global discovery
 
-Those constraints matter here because later workflow-engine and execution-package work must depend on `@talby/domain` without reintroducing a different capability model.
+Those constraints matter here because later workflow-engine and execution-package work must depend on `@talby/workforce-domain` without reintroducing a different capability model.
 
 ### Domain Layer
 
@@ -126,7 +126,7 @@ For this slice, application code should treat workflow execution configuration a
 
 Both packages are organized around domain concepts and use-case seams rather than transport or database boundaries.
 
-`@talby/domain` owns lifecycle language, invariants, and transitions:
+`@talby/workforce-domain` owns lifecycle language, invariants, and transitions:
 
 ```text
 packages/domain/src/
@@ -155,14 +155,14 @@ packages/domain/src/
   index.ts
 ```
 
-`@talby/application` owns use cases and ports, and depends on `@talby/domain`:
+`@talby/workforce-application` owns use cases and ports, and depends on `@talby/workforce-domain`:
 
 ```text
 packages/application/src/
   errors.ts                           ← Data.TaggedError variants; ApplicationError union
   ports/
     task-lifecycle-repository.ts      ← Context.Tag service class
-    clock.ts                          ← Layer satisfying WallClock from @talby/domain using Effect's Clock
+    clock.ts                          ← Layer satisfying WallClock from @talby/workforce-domain using Effect's Clock
     id-generator.ts                   ← Context.Tag service class
     tracker-projection-port.ts        ← Context.Tag service class
     claim-marker-port.ts              ← Context.Tag service class
@@ -272,12 +272,12 @@ These facts give the application layer a structured basis for persistence follow
 
 ## Application Ports
 
-Each port is a `Context.Tag` service class in `@talby/application`. Use cases declare their port requirements in the `R` channel and receive implementations via `Layer.succeed` or `Layer.effect` at the application boundary. Tests provide `Layer.succeed` fakes. Plain TypeScript interfaces as function arguments are not used.
+Each port is a `Context.Tag` service class in `@talby/workforce-application`. Use cases declare their port requirements in the `R` channel and receive implementations via `Layer.succeed` or `Layer.effect` at the application boundary. Tests provide `Layer.succeed` fakes. Plain TypeScript interfaces as function arguments are not used.
 
 Initial ports:
 
 - `TaskLifecycleRepository`
-- `WallClock` (tag defined in `@talby/domain`; `Layer` implementation in `@talby/application`)
+- `WallClock` (tag defined in `@talby/workforce-domain`; `Layer` implementation in `@talby/workforce-application`)
 - `IdGenerator`
 - `TrackerProjectionPort`
 - `ClaimMarkerPort`
@@ -289,7 +289,7 @@ Loads and saves `TaskLifecycleState`. It may later support optimistic concurrenc
 
 ### WallClock
 
-Provides the current time for lease creation, lease renewal, and other time-sensitive transitions that need it. The `WallClock` `Context.Tag` is defined in `@talby/domain` so domain transitions can declare it in their `R` channel without depending on `@talby/application`. The `@talby/application` package provides a `Layer.effect` backed by Effect's built-in `Clock` service.
+Provides the current time for lease creation, lease renewal, and other time-sensitive transitions that need it. The `WallClock` `Context.Tag` is defined in `@talby/workforce-domain` so domain transitions can declare it in their `R` channel without depending on `@talby/workforce-application`. The `@talby/workforce-application` package provides a `Layer.effect` backed by Effect's built-in `Clock` service.
 
 ### IdGenerator
 
@@ -362,7 +362,7 @@ Both domain and operational errors are modeled as `Data.TaggedError` variants. A
 
 ### Domain Errors
 
-Domain errors represent violated lifecycle rules. They live in `@talby/domain` and appear in the `E` channel of domain transition functions.
+Domain errors represent violated lifecycle rules. They live in `@talby/workforce-domain` and appear in the `E` channel of domain transition functions.
 
 Example domain errors (each a `Data.TaggedError` class):
 
@@ -381,7 +381,7 @@ A `DomainError` type alias covers all variants.
 
 ### Application Errors
 
-Operational failures live in `@talby/application` and represent infrastructure or side-effect failures that occur after the domain has accepted a transition.
+Operational failures live in `@talby/workforce-application` and represent infrastructure or side-effect failures that occur after the domain has accepted a transition.
 
 Example application errors (each a `Data.TaggedError` class):
 
@@ -436,13 +436,13 @@ No real database, tracker, memory system, or workflow engine is needed in this s
 
 This slice succeeds when:
 
-- another package can depend on `@talby/domain` for lifecycle types and transition logic
-- another package can depend on `@talby/application` for use cases and port interfaces without owning lifecycle rules
+- another package can depend on `@talby/workforce-domain` for lifecycle types and transition logic
+- another package can depend on `@talby/workforce-application` for use cases and port interfaces without owning lifecycle rules
 - adapters do not need to re-implement claim and workflow rules
 - typed domain errors and facts are sufficient for orchestrating side effects
 - tests capture the key invariants from [CONTEXT.md](../../CONTEXT.md)
 - the package boundaries are still narrow enough to extend later with persistence and adapters without breaking the domain shape
-- later workflow execution work can add `Agent` and `Skill` orchestration without reintroducing `Capability Profile` or moving lifecycle rules out of `@talby/domain`
+- later workflow execution work can add `Agent` and `Skill` orchestration without reintroducing `Capability Profile` or moving lifecycle rules out of `@talby/workforce-domain`
 
 This slice fails if lifecycle rules are still duplicated in handlers, adapters, or UI-oriented services.
 
@@ -453,7 +453,7 @@ The following implementation decisions were made during design review and are bi
 | #   | Decision                    | Chosen                                                                                       | Rejected                                                                                       |
 | --- | --------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | 1   | Domain function return type | `Effect<..., DomainError, R>` throughout                                                     | Plain discriminated union `{ ok: true, ... } \| { ok: false, ... }`; thin adapter re-wrap      |
-| 2   | Package structure           | `@talby/domain` + `@talby/application`; `@talby/core` removed                                | Single `@talby/core` package; subpath exports split (`@talby/core/domain`); umbrella re-export |
+| 2   | Package structure           | `@talby/workforce-domain` + `@talby/workforce-application`; `@talby/core` removed            | Single `@talby/core` package; subpath exports split (`@talby/core/domain`); umbrella re-export |
 | 3   | Domain `R` channel          | `R = never` by default; only transitions that need current time may require `WallClock` in `R` | `R = never` for every transition; arbitrary or full service graph dependencies in domain `R` |
 | 4   | Branded identifiers         | `Schema.String.pipe(Schema.brand(...))` from `effect/Schema`                                 | Plain TypeScript intersection brands; `Data.TaggedClass` id objects                            |
 | 5   | Domain errors               | `Data.TaggedError` variants; `DomainError` union alias                                       | Plain discriminated union with `_tag` strings; `Schema.TaggedStruct`                           |
@@ -463,10 +463,10 @@ The following implementation decisions were made during design review and are bi
 | 9   | Fixed vocabularies          | `Schema.Literal` unions (`ClaimOutcome`, `WorkflowRunOutcome`)                               | `const` object + union type; TypeScript `enum`                                                 |
 | 10  | Operational errors          | `ApplicationError` `Data.TaggedError` union; `E` channel = `DomainError \| ApplicationError` | Wrapper type with `projectionFailures` field on success; two-phase return                      |
 | 11  | `checkClaimEligibility`     | Separate read-only predicate reused internally by `claimTask`                                | Fold eligibility into `claimTask` only; richer query object return                             |
-| 12  | `WallClock` service name and home | `WallClock` `Context.Tag` defined in `@talby/domain`; `@talby/application` provides a `Layer` backed by Effect's `Clock` | Use Effect's built-in `Clock` name directly; define clock tag in `@talby/application` (circular dependency) |
+| 12  | `WallClock` service name and home | `WallClock` `Context.Tag` defined in `@talby/workforce-domain`; `@talby/workforce-application` provides a `Layer` backed by Effect's `Clock` | Use Effect's built-in `Clock` name directly; define clock tag in `@talby/workforce-application` (circular dependency) |
 | 13  | `TaskLifecycleState` scope  | Task-only in this slice; Subtask lifecycle explicitly deferred                               | Unified `LifecycleTarget` discriminated union covering Task and Subtask; `SubtaskId` brand added only |
 | 14  | `activeWorkflowRun` shape   | Slim reference `{ id: WorkflowRunId; workflowId: WorkflowId; claimId: ClaimId }`            | Full `WorkflowRun` struct with timestamps; `WorkflowRunId` alone (insufficient for `InvalidClaimOwner` check) |
-| 15  | `checkClaimEligibility` scope | Lifecycle preconditions only (no active Claim, not terminal state); Workspace Eligibility Rule evaluation is application responsibility; `EligibilityRuleViolated` lives in `@talby/application` | Domain evaluates Workspace Eligibility Rules; `isEligible: boolean` flag embedded in state |
+| 15  | `checkClaimEligibility` scope | Lifecycle preconditions only (no active Claim, not terminal state); Workspace Eligibility Rule evaluation is application responsibility; `EligibilityRuleViolated` lives in `@talby/workforce-application` | Domain evaluates Workspace Eligibility Rules; `isEligible: boolean` flag embedded in state |
 | 16  | `handoffTask` atomicity     | Single domain transition atomically releases Claim and clears `activeWorkflowRun`; emits `ClaimReleased` + `TaskHandedOff` | Two-step application composition of `releaseClaim` + `endWorkflowRun`; outcome-driven `releaseClaim` branching |
 | 17  | `failWorkflowRun` atomicity | Single domain transition atomically clears run, releases Claim, and appends `NewAttentionItem`(s) to `pendingAttentionItems`; emits `WorkflowRunFailed` + `ClaimReleased` + `AttentionItemOpened` | Two-step: domain fails run, application calls `openAttentionItem` separately |
 | 18  | ID allocation pattern       | Consistent pending pattern: domain writes to `pendingActiveClaim`, `pendingActiveWorkflowRun`, or `pendingAttentionItems`; application drains and assigns IDs before persisting; repository rejects non-empty pending fields; use-case ordering is `load → transition → enrich → persist → project` | Application pre-generates all IDs before domain calls; mixed pattern (pending for collections only) |
@@ -477,11 +477,11 @@ The following tasks decompose this slice into independently reviewable units. Ta
 
 ### Phase 0 — Package Infrastructure
 
-**T0 · Scaffold `@talby/domain` and `@talby/application`**
+**T0 · Scaffold `@talby/workforce-domain` and `@talby/workforce-application`**
 
 - Retire `packages/core` (`@talby/core` is not used in this slice per Decision #2)
 - Create `packages/domain/` with `package.json`, `tsconfig.json`, `src/index.ts`; add `effect` as dependency
-- Create `packages/application/` with `package.json`, `tsconfig.json`, `src/index.ts`; add `effect` and `@talby/domain` as dependencies
+- Create `packages/application/` with `package.json`, `tsconfig.json`, `src/index.ts`; add `effect` and `@talby/workforce-domain` as dependencies
 - Confirm both packages are covered by the existing `packages/*` glob in `pnpm-workspace.yaml`
 
 _Blocks all subsequent tasks._
@@ -623,7 +623,7 @@ _Depends on T2a, T2c._
 
 **T5c · `WallClock` Layer** — `packages/application/src/ports/clock.ts`
 
-- `Layer.effect` backed by Effect's built-in `Clock` service that satisfies the `WallClock` tag from `@talby/domain`
+- `Layer.effect` backed by Effect's built-in `Clock` service that satisfies the `WallClock` tag from `@talby/workforce-domain`
 
 _Depends on T1b._
 

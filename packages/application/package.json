@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "effect": "catalog:",
-    "@talby/workforce-core": "workspace:*"
+    "@talby/workforce-domain": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

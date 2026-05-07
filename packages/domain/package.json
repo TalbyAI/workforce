@@ -1,5 +1,5 @@
 {
-  "name": "@talby/workforce-core",
+  "name": "@talby/workforce-domain",
   "version": "0.0.1",
   "private": true,
   "type": "module",

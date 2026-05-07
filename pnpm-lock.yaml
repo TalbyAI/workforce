@@ -86,7 +86,7 @@ importers:
 
   packages/application:
     dependencies:
-      '@talby/workforce-core':
+      '@talby/workforce-domain':
         specifier: workspace:*
         version: link:../domain
       effect:
