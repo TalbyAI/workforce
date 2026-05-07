@@ -21,9 +21,9 @@
   "license": "ISC",
   "packageManager": "pnpm@10.33.2",
   "devDependencies": {
+    "@effect/language-service": "^0.85.1",
     "@eslint/js": "catalog:",
     "@types/node": "catalog:",
-    "effect": "catalog:",
     "eslint": "catalog:",
     "globals": "catalog:",
     "markdownlint-cli2": "catalog:",
