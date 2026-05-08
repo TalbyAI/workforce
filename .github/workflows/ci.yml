@@ -14,7 +14,6 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   check:
@@ -42,6 +41,9 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
