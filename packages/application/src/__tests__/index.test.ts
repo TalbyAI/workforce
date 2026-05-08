@@ -23,6 +23,7 @@ import {
   startWorkflowRun,
   WallClockLive
 } from "../index";
+import type { IdByKind } from "../index";
 import {
   AttentionItemId,
   AttentionItemNotOpen,
@@ -140,10 +141,10 @@ const makeHarness = (args: {
       }
     }),
     Layer.succeed(IdGenerator, {
-      generate: <Id extends string>(kind: string) => {
+      generate: <K extends keyof IdByKind>(kind: K) => {
         calls.push(`id:${kind}`);
         const nextId = generatedIds.shift() ?? `${kind}-generated`;
-        return Effect.succeed(nextId as Id);
+        return Effect.succeed(nextId as IdByKind[K]);
       }
     }),
     Layer.succeed(TrackerProjectionPort, {
@@ -215,9 +216,9 @@ describe("application package foundation", () => {
       }
     });
     const idGeneratorLayer = Layer.succeed(IdGenerator, {
-      generate: <Id extends string>(kind: string) => {
+      generate: <K extends keyof IdByKind>(kind: K) => {
         serviceCalls.push(`id:${kind}`);
-        return Effect.succeed(`${kind}-1` as Id);
+        return Effect.succeed(`${kind}-1` as IdByKind[K]);
       }
     });
     const trackerLayer = Layer.succeed(TrackerProjectionPort, {
@@ -858,8 +859,8 @@ describe("application package foundation", () => {
           Effect.void
       }),
       Layer.succeed(IdGenerator, {
-        generate: <Id extends string>(kind: string) =>
-          Effect.succeed(`${kind}-1` as Id)
+        generate: <K extends keyof IdByKind>(kind: K) =>
+          Effect.succeed(`${kind}-1` as IdByKind[K])
       }),
       Layer.succeed(TrackerProjectionPort, {
         project: (_state: TaskLifecycleState, _facts: ReadonlyArray<DomainFact>) =>

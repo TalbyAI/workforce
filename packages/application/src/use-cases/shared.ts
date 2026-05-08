@@ -2,13 +2,10 @@ import { Effect, Option } from "effect";
 
 import type {
   AttentionItem,
-  AttentionItemId,
-  ClaimId,
   DomainFact,
   DomainTransitionSuccess,
   TaskId,
-  TaskLifecycleState,
-  WorkflowRunId
+  TaskLifecycleState
 } from "@talby/workforce-domain";
 
 import {
@@ -56,7 +53,7 @@ const drainPendingClaim = (
     }
 
     const idGenerator = yield* IdGenerator;
-    const claimId = yield* idGenerator.generate<ClaimId>("claim");
+    const claimId = yield* idGenerator.generate("claim");
 
     return {
       ...state,
@@ -77,7 +74,7 @@ const drainPendingWorkflowRun = (
     }
 
     const idGenerator = yield* IdGenerator;
-    const workflowRunId = yield* idGenerator.generate<WorkflowRunId>(
+    const workflowRunId = yield* idGenerator.generate(
       "workflow-run"
     );
 
@@ -104,7 +101,7 @@ const drainPendingAttentionItems = (
       state.pendingAttentionItems,
       (attentionItem) =>
         Effect.map(
-          idGenerator.generate<AttentionItemId>("attention-item"),
+          idGenerator.generate("attention-item"),
           (attentionItemId): AttentionItem => ({
             id: attentionItemId,
             ...attentionItem

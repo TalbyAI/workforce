@@ -3,7 +3,7 @@ import { DateTime, Effect, Option, type Duration } from "effect";
 import type { ClaimId } from "../../ids";
 import { WallClock } from "../../services/wall-clock";
 import { makeLease } from "../../values";
-import { LeaseExpired, NoActiveClaim } from "../errors";
+import { InvalidClaimOwner, LeaseExpired, NoActiveClaim } from "../errors";
 import { LeaseRenewed } from "../facts";
 import type { TaskLifecycleState } from "../state";
 import type { DomainTransition } from "./shared";
@@ -26,7 +26,7 @@ export const renewLease = (
     const activeClaim = state.activeClaim.value;
 
     if (activeClaim.id !== intent.claimId) {
-      return yield* Effect.fail(new NoActiveClaim());
+      return yield* Effect.fail(new InvalidClaimOwner());
     }
 
     const wallClock = yield* WallClock;

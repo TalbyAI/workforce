@@ -16,7 +16,7 @@ This slice covers domain types and application-service ports. It does not define
 
 ## Why This Slice First
 
-The current repository has a strong domain language in [CONTEXT.md](../../CONTEXT.md) but no implementation in `@talby/workforce-domain` or `@talby/workforce-application` yet. The first useful boundary is therefore the core lifecycle model that governs how a Task moves through claim and execution state.
+The current repository has a strong domain language in [CONTEXT.md](../../CONTEXT.md) but, at time of writing, had no implementation in `@talby/workforce-domain` or `@talby/workforce-application`. The first useful boundary is therefore the core lifecycle model that governs how a Task moves through claim and execution state.
 
 That model is foundational because all of the following depend on it:
 

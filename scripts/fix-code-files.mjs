@@ -68,14 +68,14 @@ if (eslintFiles.length > 0) {
   exitCode = run(["exec", "eslint", "--fix", ...eslintFiles]).status;
 }
 
-const prettierExitCode = run([
-  "exec",
-  "prettier",
-  "--write",
-  ...codeFiles
-]).status;
-
 if (exitCode === 0) {
+  const prettierExitCode = run([
+    "exec",
+    "prettier",
+    "--write",
+    ...codeFiles
+  ]).status;
+
   exitCode = prettierExitCode;
 }
 

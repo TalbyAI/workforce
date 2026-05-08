@@ -440,7 +440,7 @@ describe("workflow lifecycle domain transitions", () => {
 
   // Scenario: Given a task with an active claim
   // When lease renewal is attempted with a mismatched claim id
-  // Then the domain rejects the renewal with NoActiveClaim
+  // Then the domain rejects the renewal with InvalidClaimOwner
   it("rejects lease renewal when the claim id does not match the active claim", async () => {
     const result = await runEither(
       provideWallClock(
@@ -461,7 +461,7 @@ describe("workflow lifecycle domain transitions", () => {
       throw new Error("expected renewal rejection");
     }
 
-    expect(result.failure).toBeInstanceOf(NoActiveClaim);
+    expect(result.failure).toBeInstanceOf(InvalidClaimOwner);
   });
 
   // Scenario: Given a task with an active claim whose lease has expired

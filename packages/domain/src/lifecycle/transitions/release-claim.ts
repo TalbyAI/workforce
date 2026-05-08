@@ -33,7 +33,7 @@ export const releaseClaim = (
   const activeClaim = state.activeClaim.value;
 
   if (activeClaim.id !== intent.claimId) {
-    return Effect.fail(new NoActiveClaim());
+    return Effect.fail(new InvalidClaimOwner());
   }
 
   if (Option.isSome(state.activeWorkflowRun)) {

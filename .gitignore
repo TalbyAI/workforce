@@ -157,7 +157,7 @@ vite.config.ts.timestamp-*
 # Context Mode files
 .github/context-mode
 
-# HVE Core files
+# Copilot tracking files
 .copilot-tracking/
 
 # Temporary Docs files

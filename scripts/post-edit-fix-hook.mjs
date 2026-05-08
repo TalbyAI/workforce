@@ -201,6 +201,10 @@ const addNormalizedPath = (collection, rawPath) => {
     return;
   }
 
+  if (!normalizedPath.startsWith(repoRoot)) {
+    return;
+  }
+
   if (!existsSync(normalizedPath)) {
     return;
   }
