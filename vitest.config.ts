@@ -8,7 +8,7 @@ export default defineConfig({
     }
   },
   test: {
-    include: ["packages/**/src/**/*.test.ts"],
+    include: ["packages/**/src/**/*.test.ts", "scripts/**/*.test.mjs"],
     exclude: ["**/dist/**", "**/coverage/**", "**/node_modules/**"],
     coverage: {
       include: ["packages/**/src/**/*.ts"],

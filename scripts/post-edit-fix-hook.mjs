@@ -201,7 +201,7 @@ const addNormalizedPath = (collection, rawPath) => {
     return;
   }
 
-  if (!normalizedPath.startsWith(repoRoot)) {
+  if (!isPathWithinRoot(normalizedPath, repoRoot)) {
     return;
   }
 
@@ -210,6 +210,15 @@ const addNormalizedPath = (collection, rawPath) => {
   }
 
   collection.add(normalizedPath);
+};
+
+export const isPathWithinRoot = (candidatePath, rootPath) => {
+  const relativePath = path.relative(rootPath, candidatePath);
+
+  return (
+    relativePath === "" ||
+    (!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
+  );
 };
 
 const normalizePath = (rawPath) => {
