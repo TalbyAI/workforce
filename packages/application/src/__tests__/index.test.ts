@@ -854,34 +854,24 @@ describe("application package foundation", () => {
     const calls: Array<string> = [];
     const emptyRepoLayer = Layer.mergeAll(
       Layer.succeed(TaskLifecycleRepository, {
-        load: (_taskId: TaskId) => {
+        load: () => {
           calls.push("load");
           return Effect.succeed(Option.none<TaskLifecycleState>());
         },
-        save: (_state: TaskLifecycleState, _facts: ReadonlyArray<DomainFact>) =>
-          Effect.void
+        save: () => Effect.void
       }),
       Layer.succeed(IdGenerator, {
         generate: <K extends keyof IdByKind>(kind: K) =>
           Effect.succeed(`${kind}-1` as IdByKind[K])
       }),
       Layer.succeed(TrackerProjectionPort, {
-        project: (
-          _state: TaskLifecycleState,
-          _facts: ReadonlyArray<DomainFact>
-        ) => Effect.void
+        project: () => Effect.void
       }),
       Layer.succeed(ClaimMarkerPort, {
-        project: (
-          _state: TaskLifecycleState,
-          _facts: ReadonlyArray<DomainFact>
-        ) => Effect.void
+        project: () => Effect.void
       }),
       Layer.succeed(MemoryRecordPort, {
-        record: (
-          _state: TaskLifecycleState,
-          _facts: ReadonlyArray<DomainFact>
-        ) => Effect.void
+        record: () => Effect.void
       })
     );
 
