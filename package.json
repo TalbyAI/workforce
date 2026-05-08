@@ -30,11 +30,6 @@
     "node": ">=24",
     "pnpm": ">=11"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "msgpackr-extract"
-    ]
-  },
   "devDependencies": {
     "@effect/language-service": "catalog:",
     "@eslint/js": "catalog:",
