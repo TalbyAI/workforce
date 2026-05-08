@@ -33,6 +33,10 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      - name: Diagnose build approvals
+        run: pnpm approve-builds
+        continue-on-error: true
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -54,6 +58,10 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+
+      - name: Diagnose build approvals
+        run: pnpm approve-builds
+        continue-on-error: true
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
