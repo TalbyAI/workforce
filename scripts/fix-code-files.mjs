@@ -44,16 +44,41 @@ const run = (args) => {
   }
 
   const result = spawnSync(process.execPath, [pnpmExecPath, ...args], {
-    stdio: "inherit"
+    encoding: "utf8"
   });
 
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
+  if (result.stdout) {
+    process.stdout.write(result.stdout);
   }
+
+  if (result.stderr) {
+    process.stderr.write(result.stderr);
+  }
+
+  return {
+    status: result.status ?? 1,
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? ""
+  };
 };
 
+let exitCode = 0;
+
 if (eslintFiles.length > 0) {
-  run(["exec", "eslint", "--fix", ...eslintFiles]);
+  exitCode = run(["exec", "eslint", "--fix", ...eslintFiles]).status;
 }
 
-run(["exec", "prettier", "--write", ...codeFiles]);
+const prettierExitCode = run([
+  "exec",
+  "prettier",
+  "--write",
+  ...codeFiles
+]).status;
+
+if (exitCode === 0) {
+  exitCode = prettierExitCode;
+}
+
+if (exitCode !== 0) {
+  process.exit(exitCode);
+}

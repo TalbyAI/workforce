@@ -66,18 +66,50 @@ const main = () => {
     return;
   }
 
+  const diagnostics = [];
+
   if (codeFiles.length > 0) {
-    runPnpm(["fix:code:files", "--", ...toRepoRelativePaths(codeFiles)]);
+    const fixCodeResult = runPnpm([
+      "fix:code:files",
+      "--",
+      ...toRepoRelativePaths(codeFiles)
+    ]);
+
+    if (fixCodeResult.status !== 0) {
+      diagnostics.push(
+        createCommandFailureDiagnostic(
+          "fix:code:files",
+          codeFiles,
+          fixCodeResult,
+          "Resolve the reported fixer failure, then rerun pnpm fix:code:files -- <file>."
+        )
+      );
+    }
   }
 
   if (markdownFiles.length > 0) {
-    runPnpm(["fix:md:files", "--", ...toRepoRelativePaths(markdownFiles)]);
+    const fixMarkdownResult = runPnpm([
+      "fix:md:files",
+      "--",
+      ...toRepoRelativePaths(markdownFiles)
+    ]);
+
+    if (fixMarkdownResult.status !== 0) {
+      diagnostics.push(
+        createCommandFailureDiagnostic(
+          "fix:md:files",
+          markdownFiles,
+          fixMarkdownResult,
+          "Resolve the reported fixer failure, then rerun pnpm fix:md:files -- <file>."
+        )
+      );
+    }
   }
 
-  const diagnostics = [
+  diagnostics.push(
     ...collectCodeDiagnostics(codeFiles),
     ...collectMarkdownDiagnostics(markdownFiles)
-  ];
+  );
 
   if (diagnostics.length === 0) {
     return;
@@ -275,6 +307,25 @@ const collectMarkdownDiagnostics = (markdownFiles) => {
     "Markdownlint",
     "Fix the reported Markdown rule violations, then rerun pnpm fix:md:files -- <file>."
   );
+};
+
+const createCommandFailureDiagnostic = (command, files, result, fixHint) => {
+  const combinedOutput = `${result.stdout}\n${result.stderr}`.trim();
+  const compactOutput = combinedOutput
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(" | ")
+    .slice(0, 600);
+
+  return {
+    tool: command,
+    file: files.map((filePath) => path.relative(repoRoot, filePath).replaceAll("\\", "/")).join(", "),
+    message: compactOutput
+      ? `Fix command failed with exit code ${result.status}: ${compactOutput}`
+      : `Fix command failed with exit code ${result.status}.`,
+    fixHint
+  };
 };
 
 const collectEslintDiagnostics = (eslintFiles) => {
