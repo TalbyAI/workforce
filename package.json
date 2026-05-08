@@ -9,7 +9,7 @@
     "test:coverage": "vitest run --coverage",
     "check": "pnpm run check:code && pnpm run check:md",
     "check:code": "pnpm run check:types && pnpm run check:lint && pnpm run check:format",
-    "check:types": "tsc --noEmit",
+    "check:types": "pnpm -r --if-present run typecheck",
     "check:format": "prettier --check .",
     "check:lint": "eslint .",
     "check:md": "markdownlint-cli2",
