@@ -82,9 +82,7 @@ const makeAttentionItem = (
   status: AttentionItemStatus,
   openedAt = decodeUtc("2026-05-08T10:00:00.000Z")
 ) => ({
-  id: Schema.decodeUnknownSync(
-    AttentionItemId
-  )("attention-1"),
+  id: Schema.decodeUnknownSync(AttentionItemId)("attention-1"),
   kind: "manual_review_required" as const,
   openedAt,
   status
@@ -205,7 +203,9 @@ describe("workflow lifecycle domain transitions", () => {
       throw new Error("expected an active claim");
     }
 
-    expect(result.nextState.activeClaim.value.lease.createdAt).toEqual(renewalTime);
+    expect(result.nextState.activeClaim.value.lease.createdAt).toEqual(
+      renewalTime
+    );
     expect(result.facts.map((fact) => fact._tag)).toEqual(["LeaseRenewed"]);
   });
 
@@ -339,9 +339,8 @@ describe("workflow lifecycle domain transitions", () => {
           attentionItems: [makeAttentionItem("resolved")]
         }),
         {
-          attentionItemId: Schema.decodeUnknownSync(AttentionItemId)(
-            "attention-1"
-          )
+          attentionItemId:
+            Schema.decodeUnknownSync(AttentionItemId)("attention-1")
         }
       )
     );

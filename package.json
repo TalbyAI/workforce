@@ -6,6 +6,7 @@
   "scripts": {
     "build": "pnpm -r --if-present run build",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "check": "pnpm run check:code && pnpm run check:md",
     "fix": "pnpm run fix:code && pnpm run fix:md",
     "check:code": "tsc --noEmit && eslint . && prettier --check .",
@@ -20,9 +21,10 @@
   "license": "ISC",
   "packageManager": "pnpm@11.0.8+sha512.4c4097e1dd2d42372c4e7fa5a791ff28fc75a484c7ac192e64b1df0fdef17594ba982f9b4fed9adfb3c757846f565b799b2763fb3733d1de1bcb82cf46684912",
   "devDependencies": {
-    "@effect/language-service": "^0.85.1",
+    "@effect/language-service": "catalog:",
     "@eslint/js": "catalog:",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "globals": "catalog:",
     "markdownlint-cli2": "catalog:",
