@@ -18,8 +18,18 @@ import type {
   TrackerProjectionFailed
 } from "../errors";
 import { EligibilityRuleViolated } from "../errors";
-import type { ClaimMarkerPort, IdGenerator, MemoryRecordPort, TaskLifecycleRepository, TrackerProjectionPort } from "../ports";
-import { enrichPendingState, runTransitionUseCase, type UseCaseResult } from "./shared";
+import type {
+  ClaimMarkerPort,
+  IdGenerator,
+  MemoryRecordPort,
+  TaskLifecycleRepository,
+  TrackerProjectionPort
+} from "../ports";
+import {
+  enrichPendingState,
+  runTransitionUseCase,
+  type UseCaseResult
+} from "./shared";
 
 export type ClaimTaskForWorkflowIntent = Readonly<{
   taskId: TaskId;

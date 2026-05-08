@@ -168,7 +168,10 @@ const makeHarness = (args: {
       }
     }),
     Layer.succeed(MemoryRecordPort, {
-      record: (_state: TaskLifecycleState, facts: ReadonlyArray<DomainFact>) => {
+      record: (
+        _state: TaskLifecycleState,
+        facts: ReadonlyArray<DomainFact>
+      ) => {
         calls.push("memory");
         memoryFacts.push(facts);
         return Effect.void;
@@ -863,16 +866,22 @@ describe("application package foundation", () => {
           Effect.succeed(`${kind}-1` as IdByKind[K])
       }),
       Layer.succeed(TrackerProjectionPort, {
-        project: (_state: TaskLifecycleState, _facts: ReadonlyArray<DomainFact>) =>
-          Effect.void
+        project: (
+          _state: TaskLifecycleState,
+          _facts: ReadonlyArray<DomainFact>
+        ) => Effect.void
       }),
       Layer.succeed(ClaimMarkerPort, {
-        project: (_state: TaskLifecycleState, _facts: ReadonlyArray<DomainFact>) =>
-          Effect.void
+        project: (
+          _state: TaskLifecycleState,
+          _facts: ReadonlyArray<DomainFact>
+        ) => Effect.void
       }),
       Layer.succeed(MemoryRecordPort, {
-        record: (_state: TaskLifecycleState, _facts: ReadonlyArray<DomainFact>) =>
-          Effect.void
+        record: (
+          _state: TaskLifecycleState,
+          _facts: ReadonlyArray<DomainFact>
+        ) => Effect.void
       })
     );
 

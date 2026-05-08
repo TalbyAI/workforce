@@ -13,7 +13,9 @@ export const makeLease = (params: {
   leaseDuration: Duration.Duration;
   renewalWindow: Duration.Duration;
 }): Lease => {
-  if (Duration.isGreaterThanOrEqualTo(params.renewalWindow, params.leaseDuration)) {
+  if (
+    Duration.isGreaterThanOrEqualTo(params.renewalWindow, params.leaseDuration)
+  ) {
     throw new RangeError("renewalWindow must be less than leaseDuration");
   }
 

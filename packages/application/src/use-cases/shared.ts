@@ -15,7 +15,13 @@ import {
   TaskLifecycleRepository,
   TrackerProjectionPort
 } from "../ports";
-import { RepositoryUnavailable } from "../errors";
+import {
+  ClaimMarkerFailed,
+  MemoryRecordWriteFailed,
+  RepositoryConflict,
+  RepositoryUnavailable,
+  TrackerProjectionFailed
+} from "../errors";
 
 export type UseCaseResult = Readonly<{
   state: TaskLifecycleState;
@@ -74,9 +80,7 @@ const drainPendingWorkflowRun = (
     }
 
     const idGenerator = yield* IdGenerator;
-    const workflowRunId = yield* idGenerator.generate(
-      "workflow-run"
-    );
+    const workflowRunId = yield* idGenerator.generate("workflow-run");
 
     return {
       ...state,
@@ -125,7 +129,11 @@ export const enrichPendingState = (
     return yield* drainPendingAttentionItems(withWorkflowRun);
   });
 
-export const runTransitionUseCase = <TransitionE, TransitionR, EnrichR = never>(args: {
+export const runTransitionUseCase = <
+  TransitionE,
+  TransitionR,
+  EnrichR = never
+>(args: {
   taskId: TaskId;
   transition: (
     state: TaskLifecycleState
@@ -134,7 +142,11 @@ export const runTransitionUseCase = <TransitionE, TransitionR, EnrichR = never>(
 }): Effect.Effect<
   UseCaseResult,
   | TransitionE
-  | RepositoryUnavailable,
+  | RepositoryUnavailable
+  | RepositoryConflict
+  | TrackerProjectionFailed
+  | ClaimMarkerFailed
+  | MemoryRecordWriteFailed,
   | TaskLifecycleRepository
   | TrackerProjectionPort
   | ClaimMarkerPort

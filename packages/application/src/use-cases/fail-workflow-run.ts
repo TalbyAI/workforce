@@ -23,7 +23,11 @@ import type {
   TaskLifecycleRepository,
   TrackerProjectionPort
 } from "../ports";
-import { enrichPendingState, runTransitionUseCase, type UseCaseResult } from "./shared";
+import {
+  enrichPendingState,
+  runTransitionUseCase,
+  type UseCaseResult
+} from "./shared";
 
 export type FailWorkflowRunIntent = Readonly<{
   taskId: TaskId;

@@ -444,14 +444,11 @@ describe("workflow lifecycle domain transitions", () => {
   it("rejects lease renewal when the claim id does not match the active claim", async () => {
     const result = await runEither(
       provideWallClock(
-        renewLease(
-          baseState({ activeClaim: Option.some(makeClaim()) }),
-          {
-            claimId: decodeClaimId("claim-2"),
-            leaseDuration: Duration.minutes(30),
-            renewalWindow: Duration.minutes(5)
-          }
-        ),
+        renewLease(baseState({ activeClaim: Option.some(makeClaim()) }), {
+          claimId: decodeClaimId("claim-2"),
+          leaseDuration: Duration.minutes(30),
+          renewalWindow: Duration.minutes(5)
+        }),
         decodeUtc("2026-05-08T10:00:00.000Z")
       )
     );
@@ -474,14 +471,11 @@ describe("workflow lifecycle domain transitions", () => {
 
     const result = await runEither(
       provideWallClock(
-        renewLease(
-          baseState({ activeClaim: Option.some(activeClaim) }),
-          {
-            claimId: activeClaim.id,
-            leaseDuration: Duration.minutes(30),
-            renewalWindow: Duration.minutes(5)
-          }
-        ),
+        renewLease(baseState({ activeClaim: Option.some(activeClaim) }), {
+          claimId: activeClaim.id,
+          leaseDuration: Duration.minutes(30),
+          renewalWindow: Duration.minutes(5)
+        }),
         pastExpiry
       )
     );
@@ -570,13 +564,10 @@ describe("workflow lifecycle domain transitions", () => {
     const activeClaim = makeClaim();
 
     const result = await runEither(
-      startWorkflowRun(
-        baseState({ activeClaim: Option.some(activeClaim) }),
-        {
-          claimId: decodeClaimId("claim-2"),
-          startedAt: decodeUtc("2026-05-08T10:05:00.000Z")
-        }
-      )
+      startWorkflowRun(baseState({ activeClaim: Option.some(activeClaim) }), {
+        claimId: decodeClaimId("claim-2"),
+        startedAt: decodeUtc("2026-05-08T10:05:00.000Z")
+      })
     );
 
     expect(result._tag).toBe("Failure");
@@ -595,20 +586,19 @@ describe("workflow lifecycle domain transitions", () => {
     const startedAt = decodeUtc("2026-05-08T10:05:00.000Z");
 
     const result = await Effect.runPromise(
-      startWorkflowRun(
-        baseState({ activeClaim: Option.some(activeClaim) }),
-        {
-          claimId: activeClaim.id,
-          startedAt
-        }
-      )
+      startWorkflowRun(baseState({ activeClaim: Option.some(activeClaim) }), {
+        claimId: activeClaim.id,
+        startedAt
+      })
     );
 
     expect(Option.isSome(result.nextState.pendingActiveWorkflowRun)).toBe(true);
     expect(result.nextState.executionState).toEqual(
       Option.some({ status: "running", updatedAt: startedAt })
     );
-    expect(result.facts.map((fact) => fact._tag)).toEqual(["WorkflowRunStarted"]);
+    expect(result.facts.map((fact) => fact._tag)).toEqual([
+      "WorkflowRunStarted"
+    ]);
   });
 
   // Scenario: Given a task without an active workflow run
@@ -754,14 +744,11 @@ describe("workflow lifecycle domain transitions", () => {
     };
 
     const result = await runEither(
-      failWorkflowRun(
-        baseState({ activeClaim: Option.some(activeClaim) }),
-        {
-          workflowRunId: decodeWorkflowRunId("run-1"),
-          updatedAt: decodeUtc("2026-05-08T10:20:00.000Z"),
-          attentionItems: [attentionItem]
-        }
-      )
+      failWorkflowRun(baseState({ activeClaim: Option.some(activeClaim) }), {
+        workflowRunId: decodeWorkflowRunId("run-1"),
+        updatedAt: decodeUtc("2026-05-08T10:20:00.000Z"),
+        attentionItems: [attentionItem]
+      })
     );
 
     expect(result._tag).toBe("Failure");
@@ -817,13 +804,10 @@ describe("workflow lifecycle domain transitions", () => {
     const activeClaim = makeClaim();
 
     const result = await runEither(
-      handoffTask(
-        baseState({ activeClaim: Option.some(activeClaim) }),
-        {
-          workflowRunId: decodeWorkflowRunId("run-1"),
-          updatedAt: decodeUtc("2026-05-08T10:30:00.000Z")
-        }
-      )
+      handoffTask(baseState({ activeClaim: Option.some(activeClaim) }), {
+        workflowRunId: decodeWorkflowRunId("run-1"),
+        updatedAt: decodeUtc("2026-05-08T10:30:00.000Z")
+      })
     );
 
     expect(result._tag).toBe("Failure");
@@ -917,14 +901,17 @@ describe("workflow lifecycle domain transitions", () => {
     expect(result.nextState.pendingAttentionItems).toEqual([
       { kind: "manual_review_required", openedAt, status: "open" }
     ]);
-    expect(result.facts.map((fact) => fact._tag)).toEqual(["AttentionItemOpened"]);
+    expect(result.facts.map((fact) => fact._tag)).toEqual([
+      "AttentionItemOpened"
+    ]);
   });
 
   // Scenario: Given a task with an open attention item
   // When resolution is requested
   // Then the domain marks the item resolved and emits AttentionItemResolved
   it("resolves an open attention item and emits AttentionItemResolved", async () => {
-    const attentionItemId = Schema.decodeUnknownSync(AttentionItemId)("attention-1");
+    const attentionItemId =
+      Schema.decodeUnknownSync(AttentionItemId)("attention-1");
 
     const result = await Effect.runPromise(
       resolveAttentionItem(
@@ -939,6 +926,8 @@ describe("workflow lifecycle domain transitions", () => {
       (item) => item.id === attentionItemId
     );
     expect(resolved?.status).toBe("resolved");
-    expect(result.facts.map((fact) => fact._tag)).toEqual(["AttentionItemResolved"]);
+    expect(result.facts.map((fact) => fact._tag)).toEqual([
+      "AttentionItemResolved"
+    ]);
   });
 });

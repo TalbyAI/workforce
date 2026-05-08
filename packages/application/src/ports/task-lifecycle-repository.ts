@@ -1,10 +1,11 @@
 import { Context, Effect, Option } from "effect";
 
-import type { DomainFact, TaskLifecycleState, TaskId } from "@talby/workforce-domain";
 import type {
-  RepositoryConflict,
-  RepositoryUnavailable
-} from "../errors";
+  DomainFact,
+  TaskLifecycleState,
+  TaskId
+} from "@talby/workforce-domain";
+import type { RepositoryConflict, RepositoryUnavailable } from "../errors";
 
 export interface TaskLifecycleRepositoryService {
   readonly load: (
