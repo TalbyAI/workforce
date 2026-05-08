@@ -320,7 +320,11 @@ const createCommandFailureDiagnostic = (command, files, result, fixHint) => {
 
   return {
     tool: command,
-    file: files.map((filePath) => path.relative(repoRoot, filePath).replaceAll("\\", "/")).join(", "),
+    file: files
+      .map((filePath) =>
+        path.relative(repoRoot, filePath).replaceAll("\\", "/")
+      )
+      .join(", "),
     message: compactOutput
       ? `Fix command failed with exit code ${result.status}: ${compactOutput}`
       : `Fix command failed with exit code ${result.status}.`,
