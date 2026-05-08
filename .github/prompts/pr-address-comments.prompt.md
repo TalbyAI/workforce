@@ -2,7 +2,6 @@
 description: "Address items from a triaged PR comments workflow document and update the same document as work progresses"
 name: "pr-address-comments"
 argument-hint: "document=... [code=...]"
-agent: "agent"
 ---
 
 # PR Address Comments

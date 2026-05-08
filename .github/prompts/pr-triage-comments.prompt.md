@@ -2,7 +2,6 @@
 description: "Triage a PR comments workflow document into fix, technical spike, reject, or other actionable categories"
 name: "pr-triage-comments"
 argument-hint: "document=... [categories=default]"
-agent: "agent"
 ---
 
 # PR Triage Comments
