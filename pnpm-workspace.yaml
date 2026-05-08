@@ -3,7 +3,7 @@ packages:
   - packages/*
 
 catalog:
-  effect: 4.0.0-beta.59
+  effect: 4.0.0-beta.64
   "@effect/language-service": 0.85.1
   "@vitest/coverage-v8": 4.1.5
   typescript: 6.0.3
