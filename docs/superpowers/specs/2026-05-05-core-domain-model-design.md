@@ -450,6 +450,8 @@ This slice fails if lifecycle rules are still duplicated in handlers, adapters, 
 
 The following implementation decisions were made during design review and are binding for this slice. Rejected alternatives are recorded to prevent re-litigation.
 
+<!-- markdownlint-disable MD060 -->
+
 | #   | Decision                    | Chosen                                                                                       | Rejected                                                                                       |
 | --- | --------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | 1   | Domain function return type | `Effect<..., DomainError, R>` throughout                                                     | Plain discriminated union `{ ok: true, ... } \| { ok: false, ... }`; thin adapter re-wrap      |
@@ -471,9 +473,22 @@ The following implementation decisions were made during design review and are bi
 | 17  | `failWorkflowRun` atomicity | Single domain transition atomically clears run, releases Claim, and appends `NewAttentionItem`(s) to `pendingAttentionItems`; emits `WorkflowRunFailed` + `ClaimReleased` + `AttentionItemOpened` | Two-step: domain fails run, application calls `openAttentionItem` separately |
 | 18  | ID allocation pattern       | Consistent pending pattern: domain writes to `pendingActiveClaim`, `pendingActiveWorkflowRun`, or `pendingAttentionItems`; application drains and assigns IDs before persisting; repository rejects non-empty pending fields; use-case ordering is `load → transition → enrich → persist → project` | Application pre-generates all IDs before domain calls; mixed pattern (pending for collections only) |
 
+<!-- markdownlint-enable MD060 -->
+
 ## Implementation Tasks
 
 The following tasks decompose this slice into independently reviewable units. Tasks within the same phase may proceed in parallel. Cross-phase blocking dependencies are stated explicitly.
+
+Implementation status verified against the repository on 2026-05-08:
+
+- [x] Phase 0 - Package Infrastructure
+- [x] Phase 1 - Domain Foundation
+- [x] Phase 2 - Core State Model
+- [x] Phase 3 - Domain Transitions
+- [x] Phase 4 - Domain Package Completion
+- [ ] Phase 5 - Application Foundation
+- [ ] Phase 6 - Application Use Cases
+- [ ] Phase 7 - Application Package Completion
 
 ### Phase 0 — Package Infrastructure
 
