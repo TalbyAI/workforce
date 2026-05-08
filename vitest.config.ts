@@ -20,6 +20,7 @@ export default defineConfig({
         "**/node_modules/**"
       ],
       provider: "v8",
+      reporter: ["text", "html", "json-summary", "json"],
       thresholds: {
         statements: 65,
         branches: 35,

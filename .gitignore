@@ -159,3 +159,6 @@ vite.config.ts.timestamp-*
 
 # HVE Core files
 .copilot-tracking/
+
+# Temporary Docs files
+docs/tmp
