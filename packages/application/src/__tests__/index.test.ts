@@ -13,17 +13,24 @@ import {
   TrackerProjectionPort,
   TrackerProjectionFailed,
   claimTaskForWorkflow,
+  completeWorkflowRun,
   failWorkflowRun,
+  handoffTask,
   openAttentionItem,
   releaseClaim,
+  renewClaimLease,
+  resolveAttentionItem,
   startWorkflowRun,
   WallClockLive
 } from "../index";
 import {
   AttentionItemId,
+  AttentionItemNotOpen,
   ClaimId,
   ConversationId,
   type DomainFact,
+  InvalidHandoff,
+  LeaseExpired,
   type NewAttentionItem,
   Stage,
   TaskId,
@@ -32,6 +39,7 @@ import {
   TaskNotEligibleForClaim,
   WorkflowId,
   WorkflowRunId,
+  WorkflowRunNotActive,
   WorkspaceId,
   WallClock,
   makeLease
@@ -179,6 +187,9 @@ const makeHarness = (args: {
 };
 
 describe("application package foundation", () => {
+  // Scenario: Given the application error types are constructed
+  // When their tags are inspected
+  // Then each error exposes its expected tagged identity
   it("exports tagged application errors", () => {
     expect(new RepositoryUnavailable()._tag).toBe("RepositoryUnavailable");
     expect(new RepositoryConflict()._tag).toBe("RepositoryConflict");
@@ -187,6 +198,9 @@ describe("application package foundation", () => {
     expect(new EligibilityRuleViolated()._tag).toBe("EligibilityRuleViolated");
   });
 
+  // Scenario: Given the application service tags are provided
+  // When each service is resolved and invoked once
+  // Then the expected port operations are observable through the harness
   it("exposes service tags for Phase 5 application ports", async () => {
     const taskId = decodeTaskId("task-1");
     const serviceCalls: Array<string> = [];
@@ -260,6 +274,9 @@ describe("application package foundation", () => {
     ]);
   });
 
+  // Scenario: Given the WallClock live layer is available
+  // When the current time is requested through the service
+  // Then the returned instant falls within the real clock bounds
   it("provides a WallClock layer backed by Effect Clock", async () => {
     const before = Date.now();
 
@@ -276,11 +293,17 @@ describe("application package foundation", () => {
     expect(DateTime.toEpochMillis(now)).toBeLessThanOrEqual(after);
   });
 
+  // Scenario: Given domain and application errors share a composed layer surface
+  // When each error tag is inspected
+  // Then their identities remain distinct across the boundary
   it("keeps domain and application errors distinct in the combined layer surface", () => {
     expect(new TaskNotEligibleForClaim()._tag).toBe("TaskNotEligibleForClaim");
     expect(new EligibilityRuleViolated()._tag).toBe("EligibilityRuleViolated");
   });
 
+  // Scenario: Given an eligible task can be claimed through the application layer
+  // When the claim workflow runs with generated ids and a wall clock
+  // Then the state is saved, projected, and returned with an active claim
   it("claims a task by loading, enriching ids, saving, then projecting", async () => {
     const harness = makeHarness({
       state: baseState(),
@@ -325,6 +348,9 @@ describe("application package foundation", () => {
     ]);
   });
 
+  // Scenario: Given a task has an active claim in persistence
+  // When the application releases that claim
+  // Then the resulting state and emitted facts are saved and projected
   it("releases a claim by saving and projecting the resulting fact", async () => {
     const activeClaim = makeClaim();
     const harness = makeHarness({
@@ -357,6 +383,9 @@ describe("application package foundation", () => {
     ]);
   });
 
+  // Scenario: Given pending workflow and attention identifiers must be materialized
+  // When workflow start and attention opening run through the application layer
+  // Then generated ids are drained into persisted active state records
   it("drains pending workflow run and attention item ids before persistence", async () => {
     const activeClaim = makeClaim();
     const runningState = baseState({
@@ -420,6 +449,9 @@ describe("application package foundation", () => {
     ]);
   });
 
+  // Scenario: Given the domain rejects a requested transition
+  // When the application tries to claim an already-claimed task
+  // Then no persistence or projection side effects occur
   it("does not save or project when the domain rejects a transition", async () => {
     const harness = makeHarness({
       state: baseState({
@@ -453,6 +485,336 @@ describe("application package foundation", () => {
     expect(harness.calls).toEqual(["load"]);
   });
 
+  // Scenario: Given a task has an active claim and an active workflow run
+  // When completeWorkflowRun is called with a matching workflow run id
+  // Then WorkflowRunCompleted and ClaimReleased facts are saved and projected
+  it("completes a workflow run saving WorkflowRunCompleted and ClaimReleased facts", async () => {
+    const activeClaim = makeClaim();
+    const workflowRunId = decodeWorkflowRunId("run-1");
+    const harness = makeHarness({
+      state: baseState({
+        activeClaim: Option.some(activeClaim),
+        activeWorkflowRun: Option.some({
+          id: workflowRunId,
+          workflowId: activeClaim.workflowId,
+          claimId: activeClaim.id
+        })
+      })
+    });
+
+    const result = await Effect.runPromise(
+      completeWorkflowRun({
+        taskId: decodeTaskId("task-1"),
+        workflowRunId,
+        updatedAt: decodeUtc("2026-05-08T11:00:00.000Z"),
+        outcome: "completed"
+      }).pipe(Effect.provide(harness.layer))
+    );
+
+    expect(harness.calls).toEqual([
+      "load",
+      "save",
+      "tracker",
+      "claim-marker",
+      "memory"
+    ]);
+    expect(harness.savedFacts[0]?.map((f) => f._tag)).toEqual([
+      "WorkflowRunCompleted",
+      "ClaimReleased"
+    ]);
+    expect(Option.isNone(result.state.activeClaim)).toBe(true);
+    expect(Option.isNone(result.state.activeWorkflowRun)).toBe(true);
+  });
+
+  // Scenario: Given a task has no active workflow run
+  // When completeWorkflowRun is called
+  // Then the domain rejects with WorkflowRunNotActive and no side effects occur
+  it("does not save when no active workflow run exists on complete", async () => {
+    const harness = makeHarness({ state: baseState() });
+
+    const result = await Effect.runPromise(
+      Effect.result(
+        completeWorkflowRun({
+          taskId: decodeTaskId("task-1"),
+          workflowRunId: decodeWorkflowRunId("run-1"),
+          updatedAt: decodeUtc("2026-05-08T11:00:00.000Z"),
+          outcome: "completed"
+        }).pipe(Effect.provide(harness.layer))
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") throw new Error("expected failure");
+    expect(result.failure).toBeInstanceOf(WorkflowRunNotActive);
+    expect(harness.calls).toEqual(["load"]);
+  });
+
+  // Scenario: Given a task has an active claim and an active workflow run
+  // When handoffTask is called with a matching workflow run id
+  // Then ClaimReleased and TaskHandedOff facts are saved and projected
+  it("hands off a task saving ClaimReleased and TaskHandedOff facts", async () => {
+    const activeClaim = makeClaim();
+    const workflowRunId = decodeWorkflowRunId("run-1");
+    const harness = makeHarness({
+      state: baseState({
+        activeClaim: Option.some(activeClaim),
+        activeWorkflowRun: Option.some({
+          id: workflowRunId,
+          workflowId: activeClaim.workflowId,
+          claimId: activeClaim.id
+        })
+      })
+    });
+
+    const result = await Effect.runPromise(
+      handoffTask({
+        taskId: decodeTaskId("task-1"),
+        workflowRunId,
+        updatedAt: decodeUtc("2026-05-08T11:00:00.000Z")
+      }).pipe(Effect.provide(harness.layer))
+    );
+
+    expect(harness.calls).toEqual([
+      "load",
+      "save",
+      "tracker",
+      "claim-marker",
+      "memory"
+    ]);
+    expect(harness.savedFacts[0]?.map((f) => f._tag)).toEqual([
+      "ClaimReleased",
+      "TaskHandedOff"
+    ]);
+    expect(Option.isNone(result.state.activeClaim)).toBe(true);
+    expect(Option.isNone(result.state.activeWorkflowRun)).toBe(true);
+  });
+
+  // Scenario: Given a task has no active claim or workflow run
+  // When handoffTask is called
+  // Then the domain rejects with InvalidHandoff and no side effects occur
+  it("fails with InvalidHandoff when no active claim or workflow run", async () => {
+    const harness = makeHarness({ state: baseState() });
+
+    const result = await Effect.runPromise(
+      Effect.result(
+        handoffTask({
+          taskId: decodeTaskId("task-1"),
+          workflowRunId: decodeWorkflowRunId("run-1"),
+          updatedAt: decodeUtc("2026-05-08T11:00:00.000Z")
+        }).pipe(Effect.provide(harness.layer))
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") throw new Error("expected failure");
+    expect(result.failure).toBeInstanceOf(InvalidHandoff);
+    expect(harness.calls).toEqual(["load"]);
+  });
+
+  // Scenario: Given a task has an active claim whose lease has not yet expired
+  // When renewClaimLease is called before the expiry time
+  // Then a LeaseRenewed fact is saved and the claim lease is updated
+  it("renews a non-expired claim lease and saves LeaseRenewed", async () => {
+    const activeClaim = makeClaim(); // created at 10:00, expires at 10:30
+    const harness = makeHarness({
+      state: baseState({ activeClaim: Option.some(activeClaim) })
+    });
+
+    const result = await Effect.runPromise(
+      renewClaimLease({
+        taskId: decodeTaskId("task-1"),
+        claimId: activeClaim.id,
+        leaseDuration: Duration.minutes(30),
+        renewalWindow: Duration.minutes(5)
+      }).pipe(
+        Effect.provide(harness.layer),
+        Effect.provideService(WallClock, {
+          now: Effect.succeed(decodeUtc("2026-05-08T10:15:00.000Z"))
+        })
+      )
+    );
+
+    expect(harness.calls).toEqual([
+      "load",
+      "save",
+      "tracker",
+      "claim-marker",
+      "memory"
+    ]);
+    expect(harness.savedFacts[0]?.map((f) => f._tag)).toEqual(["LeaseRenewed"]);
+    expect(Option.isSome(result.state.activeClaim)).toBe(true);
+  });
+
+  // Scenario: Given a task has an active claim whose lease has already expired
+  // When renewClaimLease is called after the expiry time
+  // Then the domain rejects with LeaseExpired and no side effects occur
+  it("fails with LeaseExpired when the claim lease has passed its expiry", async () => {
+    const activeClaim = makeClaim(); // created at 10:00, expires at 10:30
+    const harness = makeHarness({
+      state: baseState({ activeClaim: Option.some(activeClaim) })
+    });
+
+    const result = await Effect.runPromise(
+      Effect.result(
+        renewClaimLease({
+          taskId: decodeTaskId("task-1"),
+          claimId: activeClaim.id,
+          leaseDuration: Duration.minutes(30),
+          renewalWindow: Duration.minutes(5)
+        }).pipe(
+          Effect.provide(harness.layer),
+          Effect.provideService(WallClock, {
+            now: Effect.succeed(decodeUtc("2026-05-08T10:31:00.000Z"))
+          })
+        )
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") throw new Error("expected failure");
+    expect(result.failure).toBeInstanceOf(LeaseExpired);
+    expect(harness.calls).toEqual(["load"]);
+  });
+
+  // Scenario: Given a task has an open attention item in its persisted state
+  // When resolveAttentionItem is called with its id
+  // Then an AttentionItemResolved fact is saved and the item status becomes resolved
+  it("resolves an open attention item and saves AttentionItemResolved", async () => {
+    const attentionItemId = decodeAttentionItemId("attention-1");
+    const harness = makeHarness({
+      state: baseState({
+        attentionItems: [
+          {
+            id: attentionItemId,
+            kind: "manual_review_required",
+            openedAt: decodeUtc("2026-05-08T10:10:00.000Z"),
+            status: "open"
+          }
+        ]
+      })
+    });
+
+    const result = await Effect.runPromise(
+      resolveAttentionItem({
+        taskId: decodeTaskId("task-1"),
+        attentionItemId
+      }).pipe(Effect.provide(harness.layer))
+    );
+
+    expect(harness.calls).toEqual([
+      "load",
+      "save",
+      "tracker",
+      "claim-marker",
+      "memory"
+    ]);
+    expect(harness.savedFacts[0]?.map((f) => f._tag)).toEqual([
+      "AttentionItemResolved"
+    ]);
+    expect(result.state.attentionItems[0]?.status).toBe("resolved");
+  });
+
+  // Scenario: Given a task has no open attention item matching the given id
+  // When resolveAttentionItem is called with an absent id
+  // Then the domain rejects with AttentionItemNotOpen and no side effects occur
+  it("fails with AttentionItemNotOpen when no matching open attention item exists", async () => {
+    const harness = makeHarness({ state: baseState() });
+
+    const result = await Effect.runPromise(
+      Effect.result(
+        resolveAttentionItem({
+          taskId: decodeTaskId("task-1"),
+          attentionItemId: decodeAttentionItemId("attention-missing")
+        }).pipe(Effect.provide(harness.layer))
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") throw new Error("expected failure");
+    expect(result.failure).toBeInstanceOf(AttentionItemNotOpen);
+    expect(harness.calls).toEqual(["load"]);
+  });
+
+  // Scenario: Given a workflow is not eligible for claiming
+  // When claimTaskForWorkflow is called with isEligible false
+  // Then EligibilityRuleViolated is raised immediately without touching any port
+  it("fails immediately with EligibilityRuleViolated before loading when isEligible is false", async () => {
+    const harness = makeHarness({ state: baseState() });
+
+    const result = await Effect.runPromise(
+      Effect.result(
+        claimTaskForWorkflow({
+          taskId: decodeTaskId("task-1"),
+          workflowId: decodeWorkflowId("workflow-1"),
+          isEligible: false,
+          leaseDuration: Duration.minutes(30),
+          renewalWindow: Duration.minutes(5)
+        }).pipe(
+          Effect.provide(harness.layer),
+          Effect.provideService(WallClock, {
+            now: Effect.succeed(decodeUtc("2026-05-08T10:00:00.000Z"))
+          })
+        )
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") throw new Error("expected failure");
+    expect(result.failure).toBeInstanceOf(EligibilityRuleViolated);
+    expect(harness.calls).toEqual([]);
+  });
+
+  // Scenario: Given the repository holds no record for the requested task id
+  // When any use case attempts to load that task
+  // Then RepositoryUnavailable is surfaced and no further side effects occur
+  it("surfaces RepositoryUnavailable when the task is absent in the repository", async () => {
+    const calls: Array<string> = [];
+    const emptyRepoLayer = Layer.mergeAll(
+      Layer.succeed(TaskLifecycleRepository, {
+        load: (_taskId: TaskId) => {
+          calls.push("load");
+          return Effect.succeed(Option.none<TaskLifecycleState>());
+        },
+        save: (_state: TaskLifecycleState, _facts: ReadonlyArray<DomainFact>) =>
+          Effect.void
+      }),
+      Layer.succeed(IdGenerator, {
+        generate: <Id extends string>(kind: string) =>
+          Effect.succeed(`${kind}-1` as Id)
+      }),
+      Layer.succeed(TrackerProjectionPort, {
+        project: (_state: TaskLifecycleState, _facts: ReadonlyArray<DomainFact>) =>
+          Effect.void
+      }),
+      Layer.succeed(ClaimMarkerPort, {
+        project: (_state: TaskLifecycleState, _facts: ReadonlyArray<DomainFact>) =>
+          Effect.void
+      }),
+      Layer.succeed(MemoryRecordPort, {
+        record: (_state: TaskLifecycleState, _facts: ReadonlyArray<DomainFact>) =>
+          Effect.void
+      })
+    );
+
+    const result = await Effect.runPromise(
+      Effect.result(
+        releaseClaim({
+          taskId: decodeTaskId("task-missing"),
+          claimId: decodeClaimId("claim-1"),
+          outcome: "abandoned"
+        }).pipe(Effect.provide(emptyRepoLayer))
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") throw new Error("expected failure");
+    expect(result.failure).toBeInstanceOf(RepositoryUnavailable);
+    expect(calls).toEqual(["load"]);
+  });
+
+  // Scenario: Given persistence succeeds but tracker projection fails
+  // When a workflow failure is projected through the application layer
+  // Then the application surfaces TrackerProjectionFailed after save
   it("surfaces projection failures distinctly after persistence succeeds", async () => {
     const activeClaim = makeClaim();
     const attentionItem: NewAttentionItem = {
