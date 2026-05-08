@@ -550,6 +550,85 @@ describe("application package foundation", () => {
   });
 
   // Scenario: Given a task has an active claim and an active workflow run
+  // When failWorkflowRun is called with a matching workflow run id and an attention item
+  // Then WorkflowRunFailed, ClaimReleased, and AttentionItemOpened facts are saved and projected
+  it("fails a workflow run saving WorkflowRunFailed, ClaimReleased, and AttentionItemOpened facts", async () => {
+    const activeClaim = makeClaim();
+    const workflowRunId = decodeWorkflowRunId("run-1");
+    const attentionItem: NewAttentionItem = {
+      kind: "workflow_run_failed",
+      openedAt: decodeUtc("2026-05-08T11:00:00.000Z"),
+      status: "open"
+    };
+    const harness = makeHarness({
+      state: baseState({
+        activeClaim: Option.some(activeClaim),
+        activeWorkflowRun: Option.some({
+          id: workflowRunId,
+          workflowId: activeClaim.workflowId,
+          claimId: activeClaim.id
+        })
+      }),
+      generatedIds: ["attention-1"]
+    });
+
+    const result = await Effect.runPromise(
+      failWorkflowRun({
+        taskId: decodeTaskId("task-1"),
+        workflowRunId,
+        updatedAt: decodeUtc("2026-05-08T11:00:00.000Z"),
+        attentionItems: [attentionItem]
+      }).pipe(Effect.provide(harness.layer))
+    );
+
+    expect(harness.calls).toEqual([
+      "load",
+      "id:attention-item",
+      "save",
+      "tracker",
+      "claim-marker",
+      "memory"
+    ]);
+    expect(harness.savedFacts[0]?.map((f) => f._tag)).toEqual([
+      "WorkflowRunFailed",
+      "ClaimReleased",
+      "AttentionItemOpened"
+    ]);
+    expect(Option.isNone(result.state.activeClaim)).toBe(true);
+    expect(Option.isNone(result.state.activeWorkflowRun)).toBe(true);
+    expect(result.state.attentionItems).toHaveLength(1);
+    expect(result.state.attentionItems[0]?.id).toBe("attention-1");
+  });
+
+  // Scenario: Given a task has no active workflow run
+  // When failWorkflowRun is called
+  // Then the domain rejects with WorkflowRunNotActive and no side effects occur
+  it("does not save when no active workflow run exists on fail", async () => {
+    const harness = makeHarness({ state: baseState() });
+    const attentionItem: NewAttentionItem = {
+      kind: "workflow_run_failed",
+      openedAt: decodeUtc("2026-05-08T11:00:00.000Z"),
+      status: "open"
+    };
+
+    const result = await Effect.runPromise(
+      Effect.result(
+        failWorkflowRun({
+          taskId: decodeTaskId("task-1"),
+          workflowRunId: decodeWorkflowRunId("run-1"),
+          updatedAt: decodeUtc("2026-05-08T11:00:00.000Z"),
+          attentionItems: [attentionItem]
+        }).pipe(Effect.provide(harness.layer))
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") throw new Error("expected failure");
+    expect(result.failure).toBeInstanceOf(WorkflowRunNotActive);
+    expect(harness.calls).toEqual(["load"]);
+  });
+
+  // Scenario: Given a task has an active claim and an active workflow run
   // When handoffTask is called with a matching workflow run id
   // Then ClaimReleased and TaskHandedOff facts are saved and projected
   it("hands off a task saving ClaimReleased and TaskHandedOff facts", async () => {
