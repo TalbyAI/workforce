@@ -1,7 +1,4 @@
 {
-    "js/ts.tsdk.path": "node_modules\\typescript\\lib",
-    "cSpell.words": [
-        "talby",
-        "Talby"
-    ]
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "cSpell.words": ["talby", "Talby"]
 }

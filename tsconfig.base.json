@@ -14,13 +14,16 @@
     "useDefineForClassFields": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     // baseUrl is deprecated in TypeScript 6.0 (to be removed in 7.0) but still
     // required for paths mapping. Silence the warning until we migrate.
     "ignoreDeprecations": "6.0",
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@talby/core": ["packages/core/src/index.ts"]
+      "@talby/workforce-domain": ["packages/domain/src/index.ts"],
+      "@talby/workforce-application": ["packages/application/src/index.ts"]
     }
   }
 }
