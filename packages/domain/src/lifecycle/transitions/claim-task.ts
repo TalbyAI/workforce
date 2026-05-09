@@ -1,6 +1,7 @@
 import { Effect, Option, type Duration } from "effect";
 
 import { WallClock } from "../../services/wall-clock";
+import { TaskAlreadyClaimed } from "../errors";
 import { ClaimAcquired } from "../facts";
 import { type NewClaim, type TaskLifecycleState } from "../state";
 import { makeLease } from "../../values";
@@ -20,6 +21,10 @@ export const claimTask = (
 ): DomainTransition<WallClock> =>
   Effect.gen(function* () {
     yield* checkClaimEligibility(state);
+
+    if (Option.isSome(state.pendingActiveClaim)) {
+      return yield* Effect.fail(new TaskAlreadyClaimed());
+    }
 
     const wallClock = yield* WallClock;
     const now = yield* wallClock.now;
