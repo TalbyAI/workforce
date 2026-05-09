@@ -580,4 +580,16 @@ const parseLineDiagnostics = (output, files, tool, fixHint) => {
 const formatDiagnostic = ({ tool, file, message, fixHint }) =>
   `${tool}: ${file}: ${message} Fix: ${fixHint}`;
 
-main();
+const isExecutedAsScript = () => {
+  const entryPath = process.argv[1];
+
+  if (!entryPath) {
+    return false;
+  }
+
+  return path.resolve(entryPath) === fileURLToPath(import.meta.url);
+};
+
+if (isExecutedAsScript()) {
+  main();
+}
