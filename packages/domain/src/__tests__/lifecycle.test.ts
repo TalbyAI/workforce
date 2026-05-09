@@ -128,6 +128,66 @@ const provideWallClock = <A, E>(
 const runEither = <A, E>(effect: Effect.Effect<A, E, never>) =>
   Effect.runPromise(Effect.result(effect));
 
+describe("makeLease", () => {
+  it("allows a renewal window equal to the lease duration", () => {
+    // Scenario: given a positive leaseDuration and equal renewalWindow, when makeLease runs, then it creates a Lease.
+    const createdAt = decodeUtc("2026-05-08T10:00:00.000Z");
+
+    const lease = makeLease({
+      createdAt,
+      leaseDuration: Duration.minutes(30),
+      renewalWindow: Duration.minutes(30)
+    });
+
+    expect(lease).toEqual({
+      createdAt,
+      expiresAt: decodeUtc("2026-05-08T10:30:00.000Z"),
+      renewalWindow: Duration.minutes(30)
+    });
+  });
+
+  it("rejects invalid lease invariants", () => {
+    // Scenario: given invalid createdAt lease inputs, when makeLease runs, then it throws a RangeError for the violated invariant.
+    const createdAt = decodeUtc("2026-05-08T10:00:00.000Z");
+
+    expect(() =>
+      makeLease({
+        createdAt,
+        leaseDuration: Duration.zero,
+        renewalWindow: Duration.zero
+      })
+    ).toThrowError(
+      new RangeError(
+        "leaseDuration must be positive when constructing Lease from createdAt"
+      )
+    );
+
+    expect(() =>
+      makeLease({
+        createdAt,
+        leaseDuration: Duration.minutes(30),
+        renewalWindow: Duration.minutes(-1)
+      })
+    ).toThrowError(
+      new RangeError(
+        "renewalWindow must be non-negative when constructing Lease from createdAt"
+      )
+    );
+
+    expect(() =>
+      makeLease({
+        createdAt,
+        leaseDuration: Duration.minutes(30),
+        renewalWindow: Duration.minutes(31)
+      })
+    ).toThrowError(
+      new RangeError(
+        "renewalWindow must not be greater than leaseDuration when constructing Lease from createdAt"
+      )
+    );
+  });
+});
+
 describe("workflow lifecycle domain transitions", () => {
   // Scenario: Given an eligible task without an active claim
   // When a workflow claims the task

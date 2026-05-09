@@ -32,7 +32,7 @@ export const renewLease = (
     const wallClock = yield* WallClock;
     const now = yield* wallClock.now;
 
-    if (DateTime.isGreaterThan(now, activeClaim.lease.expiresAt)) {
+    if (DateTime.isGreaterThanOrEqualTo(now, activeClaim.lease.expiresAt)) {
       return yield* Effect.fail(new LeaseExpired());
     }
 
