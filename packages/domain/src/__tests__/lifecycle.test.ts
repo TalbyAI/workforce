@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   AttentionItemId,
   AttentionItemNotOpen,
+  checkClaimEligibility,
   type AttentionItemStatus,
   type Claim,
   ClaimId,
@@ -223,6 +224,56 @@ describe("workflow lifecycle domain transitions", () => {
     ]);
   });
 
+  // Scenario: Given a task without an active claim and not in a terminal state
+  // When claim eligibility is checked directly
+  // Then the domain allows the claim
+  it("allows direct claim eligibility checks for an eligible task", async () => {
+    const result = await runEither(checkClaimEligibility(baseState()));
+
+    expect(result._tag).toBe("Success");
+    if (result._tag !== "Success") {
+      throw new Error("expected claim eligibility success");
+    }
+  });
+
+  // Scenario: Given a task that already has an active claim
+  // When claim eligibility is checked directly
+  // Then the domain rejects the claim with TaskAlreadyClaimed
+  it("rejects direct claim eligibility checks when an active claim exists", async () => {
+    const result = await runEither(
+      checkClaimEligibility(
+        baseState({ activeClaim: Option.some(makeClaim()) })
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") {
+      throw new Error("expected claim eligibility rejection");
+    }
+
+    expect(result.failure).toBeInstanceOf(TaskAlreadyClaimed);
+  });
+
+  // Scenario: Given a task in a terminal execution state
+  // When claim eligibility is checked directly
+  // Then the domain rejects the claim with TaskNotEligibleForClaim
+  it("rejects direct claim eligibility checks for terminal tasks", async () => {
+    const result = await runEither(
+      checkClaimEligibility(
+        baseState({
+          executionState: Option.some(makeExecutionState("completed"))
+        })
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") {
+      throw new Error("expected claim eligibility rejection");
+    }
+
+    expect(result.failure).toBeInstanceOf(TaskNotEligibleForClaim);
+  });
+
   // Scenario: Given a task that already has an active claim
   // When another workflow attempts to claim it
   // Then the domain rejects the claim with TaskAlreadyClaimed
@@ -232,6 +283,34 @@ describe("workflow lifecycle domain transitions", () => {
         claimTask(
           baseState({
             activeClaim: Option.some(makeClaim())
+          }),
+          {
+            workflowId: decodeWorkflowId("workflow-2"),
+            leaseDuration: Duration.minutes(30),
+            renewalWindow: Duration.minutes(5)
+          }
+        ),
+        decodeUtc("2026-05-08T10:00:00.000Z")
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") {
+      throw new Error("expected claim rejection");
+    }
+
+    expect(result.failure).toBeInstanceOf(TaskAlreadyClaimed);
+  });
+
+  // Scenario: Given a task with no active claim and a pending active claim already staged
+  // When another workflow attempts to claim it
+  // Then the domain rejects the claim with TaskAlreadyClaimed
+  it("rejects claiming a task that already has a pending active claim", async () => {
+    const result = await runEither(
+      provideWallClock(
+        claimTask(
+          baseState({
+            pendingActiveClaim: Option.some(makeClaim())
           }),
           {
             workflowId: decodeWorkflowId("workflow-2"),
@@ -333,6 +412,32 @@ describe("workflow lifecycle domain transitions", () => {
     expect(result.facts.map((fact) => fact._tag)).toEqual(["ClaimReleased"]);
   });
 
+  // Scenario: Given a task with an active claim and a different claim id
+  // When release is requested
+  // Then the domain rejects the release with InvalidClaimOwner
+  it("rejects releasing a claim when the claim id does not match the active claim", async () => {
+    const activeClaim = makeClaim();
+
+    const result = await runEither(
+      releaseClaim(
+        baseState({
+          activeClaim: Option.some(activeClaim)
+        }),
+        {
+          claimId: decodeClaimId("claim-2"),
+          outcome: "abandoned"
+        }
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") {
+      throw new Error("expected release rejection");
+    }
+
+    expect(result.failure).toBeInstanceOf(InvalidClaimOwner);
+  });
+
   // Scenario: Given a task that already has an active workflow run
   // When the same task tries to start another workflow run
   // Then the domain rejects the request with WorkflowRunAlreadyActive
@@ -421,6 +526,37 @@ describe("workflow lifecycle domain transitions", () => {
     }
 
     expect(result.failure).toBeInstanceOf(InvalidHandoff);
+  });
+
+  // Scenario: Given a task with an active claim and a workflow run whose claim id does not match
+  // When a handoff is attempted
+  // Then the domain rejects the handoff with InvalidClaimOwner
+  it("rejects handoff when the claim id does not match the active workflow run", async () => {
+    const activeClaim = makeClaim();
+
+    const result = await runEither(
+      handoffTask(
+        baseState({
+          activeClaim: Option.some(activeClaim),
+          activeWorkflowRun: Option.some({
+            id: decodeWorkflowRunId("run-1"),
+            workflowId: activeClaim.workflowId,
+            claimId: decodeClaimId("claim-2")
+          })
+        }),
+        {
+          workflowRunId: decodeWorkflowRunId("run-1"),
+          updatedAt: decodeUtc("2026-05-08T10:30:00.000Z")
+        }
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") {
+      throw new Error("expected handoff rejection");
+    }
+
+    expect(result.failure).toBeInstanceOf(InvalidClaimOwner);
   });
 
   // Scenario: Given an attention item that is already closed
@@ -718,6 +854,67 @@ describe("workflow lifecycle domain transitions", () => {
     expect(result.failure).toBeInstanceOf(WorkflowRunNotActive);
   });
 
+  // Scenario: Given a task with an active workflow run but no active claim
+  // When completion is attempted
+  // Then the domain rejects the request with NoActiveClaim
+  it("rejects completing a workflow run when there is no active claim", async () => {
+    const result = await runEither(
+      completeWorkflowRun(
+        baseState({
+          activeWorkflowRun: Option.some({
+            id: decodeWorkflowRunId("run-1"),
+            workflowId: decodeWorkflowId("workflow-1"),
+            claimId: decodeClaimId("claim-1")
+          })
+        }),
+        {
+          workflowRunId: decodeWorkflowRunId("run-1"),
+          updatedAt: decodeUtc("2026-05-08T10:20:00.000Z"),
+          outcome: "completed"
+        }
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") {
+      throw new Error("expected completion rejection");
+    }
+
+    expect(result.failure).toBeInstanceOf(NoActiveClaim);
+  });
+
+  // Scenario: Given a task with an active workflow run whose claim id does not match the active claim
+  // When completion is attempted
+  // Then the domain rejects the request with InvalidClaimOwner
+  it("rejects completing a workflow run when the claim id does not match", async () => {
+    const activeClaim = makeClaim();
+
+    const result = await runEither(
+      completeWorkflowRun(
+        baseState({
+          activeClaim: Option.some(activeClaim),
+          activeWorkflowRun: Option.some({
+            id: decodeWorkflowRunId("run-1"),
+            workflowId: activeClaim.workflowId,
+            claimId: decodeClaimId("claim-2")
+          })
+        }),
+        {
+          workflowRunId: decodeWorkflowRunId("run-1"),
+          updatedAt: decodeUtc("2026-05-08T10:20:00.000Z"),
+          outcome: "completed"
+        }
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") {
+      throw new Error("expected completion rejection");
+    }
+
+    expect(result.failure).toBeInstanceOf(InvalidClaimOwner);
+  });
+
   // Scenario: Given a running workflow with an active claim
   // When the workflow run completes successfully
   // Then the domain clears the claim and run and emits WorkflowRunCompleted and ClaimReleased
@@ -855,6 +1052,85 @@ describe("workflow lifecycle domain transitions", () => {
     }
 
     expect(result.failure).toBeInstanceOf(WorkflowRunNotActive);
+  });
+
+  // Scenario: Given a task with an active workflow run whose claim id does not match the active claim
+  // When fail is attempted
+  // Then the domain rejects the request with InvalidClaimOwner
+  it("rejects failing a workflow run when the claim id does not match", async () => {
+    const activeClaim = makeClaim();
+    const attentionItem: NewAttentionItem = {
+      kind: "workflow_run_failed",
+      openedAt: decodeUtc("2026-05-08T10:15:00.000Z"),
+      status: "open"
+    };
+
+    const result = await runEither(
+      failWorkflowRun(
+        baseState({
+          activeClaim: Option.some(activeClaim),
+          activeWorkflowRun: Option.some({
+            id: decodeWorkflowRunId("run-1"),
+            workflowId: activeClaim.workflowId,
+            claimId: decodeClaimId("claim-2")
+          })
+        }),
+        {
+          workflowRunId: decodeWorkflowRunId("run-1"),
+          updatedAt: decodeUtc("2026-05-08T10:20:00.000Z"),
+          attentionItems: [attentionItem]
+        }
+      )
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") {
+      throw new Error("expected fail rejection");
+    }
+
+    expect(result.failure).toBeInstanceOf(InvalidClaimOwner);
+  });
+
+  // Scenario: Given a task with a pending attention item and a new failure item
+  // When fail is attempted successfully
+  // Then the domain accumulates both pending attention items
+  it("accumulates pending attention items when a workflow run fails", async () => {
+    const activeClaim = makeClaim();
+    const existingAttentionItem = makeAttentionItem("open");
+    const newAttentionItem: NewAttentionItem = {
+      kind: "workflow_run_failed",
+      openedAt: decodeUtc("2026-05-08T10:15:00.000Z"),
+      status: "open"
+    };
+
+    const result = await Effect.runPromise(
+      failWorkflowRun(
+        baseState({
+          activeClaim: Option.some(activeClaim),
+          activeWorkflowRun: Option.some({
+            id: decodeWorkflowRunId("run-1"),
+            workflowId: activeClaim.workflowId,
+            claimId: activeClaim.id
+          }),
+          pendingAttentionItems: [existingAttentionItem]
+        }),
+        {
+          workflowRunId: decodeWorkflowRunId("run-1"),
+          updatedAt: decodeUtc("2026-05-08T10:20:00.000Z"),
+          attentionItems: [newAttentionItem]
+        }
+      )
+    );
+
+    expect(result.nextState.pendingAttentionItems).toEqual([
+      existingAttentionItem,
+      newAttentionItem
+    ]);
+    expect(result.facts.map((fact) => fact._tag)).toEqual([
+      "WorkflowRunFailed",
+      "ClaimReleased",
+      "AttentionItemOpened"
+    ]);
   });
 
   // Scenario: Given a task with an active claim but no active workflow run
