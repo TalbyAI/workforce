@@ -162,3 +162,4 @@ vite.config.ts.timestamp-*
 
 # Temporary Docs files
 docs/tmp
+.gitnexus
