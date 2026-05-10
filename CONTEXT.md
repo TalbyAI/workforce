@@ -61,7 +61,7 @@ The canonical external memory-system thread that stores the records of one Conve
 _Avoid_: secondary shard, parallel conversation thread
 
 **External Tracker**:
-A third-party work management system that owns the canonical task lifecycle for imported Tasks.
+A third-party work management system that owns the canonical task lifecycle for Tasks that Talby ingests from it.
 _Avoid_: Talby backlog, internal board
 
 **Source Reference**:
