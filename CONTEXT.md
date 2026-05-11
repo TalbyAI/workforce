@@ -64,13 +64,29 @@ _Avoid_: secondary shard, parallel conversation thread
 A third-party work management system that owns the canonical task lifecycle for Tasks that Talby ingests from it.
 _Avoid_: Talby backlog, internal board
 
+**Task History in Talby**:
+The combined history of a Task as assembled by Talby from **Task Intake** onward across both the External Tracker and Talby. Talby uses it as the underlying history for views such as **Read View** and **Current Task View**.
+_Avoid_: canonical task lifecycle, tracker status, external source of truth
+
 **Source Reference**:
 The integration-managed mapping from a Task to its originating record in an External Tracker.
 _Avoid_: primary task id, public task id
 
+**Task Intake**:
+The moment Talby accepts a Task into its own handling boundary and starts working with it.
+_Avoid_: tracker import internals, workflow start, claim acquisition
+
 **Tracker Projection**:
 An outbound update that Talby writes into the External Tracker to reflect work performed or state decided in Talby.
-_Avoid_: mirrored field, shared ownership
+_Avoid_: mirrored field, shared ownership, internal read view
+
+**Read View**:
+An internal Talby view of task information prepared for looking things up, listing work, or helping operators see what matters quickly. Read View usually refers to list-style or lookup-style views derived from **Task History in Talby** that may update shortly after Talby records what happened. It exposes task information Talby has assembled and chosen to show, rather than arbitrary raw tracker fields.
+_Avoid_: tracker projection, current task view, claim decision record
+
+**Current Task View**:
+Talby's latest assembled view of one Task, rebuilt from **Task History in Talby** when the latest known state is needed. It shows task information Talby has assembled and chosen to show, rather than arbitrary raw tracker fields.
+_Avoid_: lagging list view, tracker projection
 
 **Eligibility Rule**:
 A Talby configuration rule that determines whether a Task is eligible for Talby to start a Workflow Run.
@@ -215,6 +231,7 @@ _Avoid_: external child issue, second task claim
 - A **Task** has at most one **Write Repository** in v1
 - A **Task** has exactly one active **Conversation** while it is being processed in Talby
 - A **Task** has exactly one **Task ID** inside Talby
+- After **Task Intake**, a **Task** has exactly one **Task History in Talby**
 - A **Task** has exactly one active **Source Reference** to its originating record
 - A **Task** may have zero or one active **Execution State** in Talby at a time
 - A **Task** has exactly one current **Stage**
@@ -241,7 +258,7 @@ _Avoid_: external child issue, second task claim
 - A **Conversation** maps to exactly one canonical **Memory Thread** in the external memory system
 - A **Conversation** may involve zero or more **Participants**
 - A **Conversation** may involve zero or more **Workflow Runs**
-- A **Conversation** begins when the **Task** is ingested into Talby
+- A **Conversation** begins at **Task Intake**
 - A **Conversation** normally ends when the **Task** reaches terminal closure in Talby
 - A **Conversation** may reopen if the same **Task** is reactivated
 - A **Conversation** accumulates **Memory Records** as messages, comments, and task updates arrive
@@ -264,7 +281,8 @@ _Avoid_: external child issue, second task claim
 - A **Task** may have zero or more open **Attention Items**
 - An **Operator** may review and resolve **Attention Items**
 - An **Operator** works primarily from the **Attention Queue** in the v1 UI
-- Opening an **Attention Item** takes the **Operator** into a **Task**-centric detail view
+- When a list-style **Read View** and a **Current Task View** disagree about one **Task**, the **Current Task View** is Talby's authoritative view for that **Task**
+- Opening an **Attention Item** takes the **Operator** into a **Current Task View**
 - The v1 task view exposes a minimal **Operator Action Set**
 - A **Task** is claimable only when it matches an **Eligibility Rule** and has no active **Claim**
 - The **Write Repository** is selected during routing before the **Claim** is acquired and the **Workflow Run** starts
@@ -383,7 +401,7 @@ _Avoid_: external child issue, second task claim
 > **Dev:** "What does the **Operator** land on first in the UI?"
 > **Domain expert:** "The **Attention Queue**. It is the primary working surface in v1."
 > **Dev:** "When the **Operator** opens an **Attention Item**, what view is primary?"
-> **Domain expert:** "A **Task**-centric detail view. The **Attention Item** explains why the operator arrived there, but the task is the main surface for action."
+> **Domain expert:** "A **Current Task View**. The **Attention Item** explains why the operator arrived there, but the task is the main surface for action. The **Attention Item** remains its own item type."
 > **Dev:** "Inside the task view, what panel is primary by default?"
 > **Domain expert:** "The **Conversation**. Execution and git context support it, but the conversation is the primary panel in v1."
 > **Dev:** "Can the **Operator** write directly into that **Conversation** panel?"
@@ -425,13 +443,13 @@ _Avoid_: external child issue, second task claim
 > **Dev:** "If a step changes the workflow defaults, does it replace them or extend them?"
 > **Domain expert:** "Either is allowed, but the step must say which one it means. Use explicit `replace` or `merge` semantics rather than an ambiguous override."
 > **Dev:** "What is the primary unit of memory ingestion?"
-> **Domain expert:** "A **Conversation** is the primary unit. It belongs to a **Task**, starts when the **Task** is ingested into Talby, and grows as **Participants** add messages, comments, and updates."
+> **Domain expert:** "A **Conversation** is the primary unit. It belongs to a **Task**, starts at **Task Intake**, and grows as **Participants** add messages, comments, and updates."
 > **Dev:** "What happens if the **Task** is completed and later reactivated?"
 > **Domain expert:** "Use one **Conversation** per **Task** lifecycle and reopen that same **Conversation** if the **Task** is reactivated."
 > **Dev:** "How does Talby scope memory retrieval?"
 > **Domain expert:** "Talby sends the issuing **Participant** identity plus the **Conversation** and **Workspace** context in each **Memory Query**. The external memory system enforces filtering and may return literal messages from other participants or inferred conclusions from **Organization Memory**."
 > **Dev:** "What gets written into memory automatically?"
-> **Domain expert:** "Talby defines a baseline **Memory Feed** for each **Conversation**. It automatically ingests task ingestion data, task comments and updates, conversation messages from **Participants**, claim lifecycle events, handoff events, and links to artifacts or evidence."
+> **Domain expert:** "Talby defines a baseline **Memory Feed** for each **Conversation**. It automatically ingests Task Intake data, task comments and updates, conversation messages from **Participants**, claim lifecycle events, handoff events, and links to artifacts or evidence."
 > **Dev:** "Do we store full artifact contents in memory?"
 > **Domain expert:** "Not by default. Memory stores artifact references plus an **Artifact Summary**, while raw artifact contents stay in their source system."
 > **Dev:** "Do inferred summaries and conclusions become memory automatically?"
@@ -470,6 +488,11 @@ _Avoid_: external child issue, second task claim
 - "task id" could mean either Talby's identifier or the tracker's identifier — resolved: use **Task ID** for the Talby-generated identifier and **Source Reference** for the external mapping.
 - "task" could be overloaded to mean a bundle of external records — resolved: a **Task** maps one-to-one to one originating external record at the start.
 - "ownership" could imply Talby and the tracker both own the same fields — resolved: the **External Tracker** remains canonical, and Talby writes explicit **Tracker Projections** into it.
+- "source of truth" could imply Talby owns the Task lifecycle once work starts — resolved: the **External Tracker** remains the canonical owner of Task lifecycle, while **Task History in Talby** is Talby's assembled combined history of the **Task** across Talby and the **External Tracker**.
+- "history start" could imply Talby carries the tracker's full pre-Talby past — resolved: **Task History in Talby** starts at **Task Intake**, even when it includes later tracker changes that Talby brings into that combined history.
+- "projection" could mean either an outbound tracker update or an internal Talby view — resolved: use **Tracker Projection** for outbound tracker updates, **Read View** for list-style or lookup-style Talby views, and **Current Task View** for the up-to-date view of one Task.
+- "freshness" could imply every Talby screen updates at the same moment Talby records work — resolved: Talby records what happened first, list-style **Read Views** may update shortly afterward, and a **Current Task View** may be rebuilt from **Task History in Talby** to show the latest known state.
+- "which screen wins" could be unclear when a lagging list and a task detail disagree — resolved: the **Current Task View** is Talby's authoritative view for that **Task**.
 - "stage change" could mean either continued work or transfer of responsibility — resolved: use **Handoff** when the stage change is meant to release the current **Claim**.
 - "why the claim ended" could drift into free-form text — resolved: use the fixed **Claim Outcome** vocabulary: completed, handed_off, abandoned, expired, revoked, failed.
 - "responsibility" could imply either Talby runtime ownership or external human assignment — resolved: only **Workflow Runs** hold **Claims**; humans receive work through **Handoff** in the **External Tracker**.
@@ -513,7 +536,7 @@ _Avoid_: external child issue, second task claim
 - "message author" was too narrow — resolved: use **Participant** for the human or **Agent** identity that issues a **Memory Record** or **Memory Query**.
 - "ui user" could be mistaken for a general end user — resolved: the primary v1 UI user is an **Operator**.
 - "landing page" could drift into passive reporting — resolved: the primary v1 UI working surface is the **Attention Queue**.
-- "attention item detail" could overshadow the actual unit of action — resolved: opening an **Attention Item** leads to a **Task**-centric view.
+- "attention item detail" could overshadow the actual unit of action — resolved: opening an **Attention Item** leads to a **Current Task View** where the Task is the main surface for action.
 - "task detail priority" could drift toward dashboards or git state — resolved: the **Conversation** is the primary panel in the v1 task detail view.
 - "conversation panel" could be mistaken for read-only history — resolved: an **Operator** may post directly into the **Conversation**.
 - "task view actions" could sprawl into a full admin surface — resolved: v1 exposes a minimal **Operator Action Set** focused on intervention and supervision.

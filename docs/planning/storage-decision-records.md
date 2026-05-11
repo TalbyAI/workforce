@@ -166,24 +166,24 @@ New intake-only metadata goes into snapshot state by default. Add a field to `Ta
 
 When a second persisted aggregate appears, it gets its own port and adapter first. Shared persistence scaffolding is extracted only after real duplication appears, and stays below the aggregate-specific port boundary.
 
-### D34 — Facts become the write-model source of truth
+### D34 — Facts become Talby's internal write-model source of truth
 
-This decision supersedes D01 and D02. Persisted facts are now the authoritative write model. Facts may still produce two different derived artifacts: transactional aggregate snapshots for command-side rebuilds, and asynchronous projections for read-model queries. Neither artifact is authoritative.
+This decision supersedes D01 and D02. Persisted facts are now Talby's authoritative internal write model after Task Intake. This does not change the External Tracker as the canonical owner of Task lifecycle. Facts may still produce two different derived artifacts: transactional aggregate snapshots for command-side rebuilds, and asynchronous read models for query and operator-facing read concerns. Neither artifact is authoritative.
 
 ### D35 — Fact and snapshot storage split into separate ports
 
-This decision supersedes D03 and D12. Talby uses a dedicated fact store port for fact append, fact reads, and persistent fact subscriptions. Aggregate snapshot and projection access remain separate logical concerns even when one adapter stores fact rows, aggregate snapshot rows, and projection rows in the same physical database.
+This decision supersedes D03 and D12. Talby uses a dedicated fact store port for fact append, fact reads, and persistent fact subscriptions. Aggregate snapshot access and asynchronous read-model access remain separate logical concerns even when one adapter stores fact rows, aggregate snapshot rows, and read-model rows in the same physical database.
 
 ### Terminology note after D34
 
 - Aggregate snapshot — a transactional command-side checkpoint derived from facts and used only to rebuild aggregate state efficiently
-- Projection — an asynchronous eventual-consistency read model derived from facts for query and operator-facing read concerns
+- Read model — an asynchronous eventual-consistency internal representation derived from facts for query and operator-facing read concerns. In the Talby domain language, operator-facing read concerns surface as **Read Views** and **Current Task Views**, while **Tracker Projection** remains reserved for outbound updates written back to the External Tracker.
 
-Unless a decision explicitly says `aggregate snapshot`, read-model concerns use `projection`. This keeps command-side checkpoints distinct from eventual-consistency read models.
+Unless a decision explicitly says `aggregate snapshot`, read-model concerns use `read model`, `Read View`, or `Current Task View` as appropriate. This keeps command-side checkpoints distinct from eventual-consistency internal reads and from **Tracker Projections**.
 
-### D36 — Projections are updated asynchronously from persistent fact subscriptions
+### D36 — Read models are updated asynchronously from persistent fact subscriptions
 
-This decision supersedes D13. After facts are committed, projection updaters may consume them through a durable subscription model and update projections after the fact. Projection lag is accepted where async updates are used.
+This decision supersedes D13. After facts are committed, read-model updaters may consume them through a durable subscription model and update internal read models after the fact. Read-model lag is accepted where async updates are used.
 
 ### D37 — Fact append concurrency is per-Task stream version
 
@@ -221,7 +221,7 @@ When a subscription is created, it may declare optional filters such as `entity_
 
 ### D41 — Subscription delivery is at-least-once
 
-Fact subscriptions deliver at least once. Redelivery is expected, so projection updaters and other subscribers must be idempotent.
+Fact subscriptions deliver at least once. Redelivery is expected, so read-model updaters and other subscribers must be idempotent.
 
 ### D42 — Subscription checkpoints advance only after successful downstream persistence
 
@@ -243,13 +243,13 @@ Aggregate snapshots carry a `snapshot_version` so rebuild logic can ignore stale
 
 Aggregate snapshots are saved transactionally with fact commits and contain the state needed for business decisions during command handling.
 
-### D47 — Projections are separate eventual-consistency read models
+### D47 — Read models are separate eventual-consistency internal views
 
-Projections are derived from past facts asynchronously and serve read-model concerns such as filtering, pagination, sorting, and query shaping. They may resemble aggregate snapshots, but do not need to share the same shape or semantics.
+Read models are derived from past facts asynchronously and serve internal read concerns such as filtering, pagination, sorting, query shaping, **Read Views**, and **Current Task Views**. They may resemble aggregate snapshots, but do not need to share the same shape or semantics.
 
-### D48 — Command handlers never depend on projections
+### D48 — Command handlers never depend on read models
 
-Command handlers may use transactional aggregate snapshots as checkpoints, but they must never depend on projections or any other eventually consistent state for business decisions.
+Command handlers may use transactional aggregate snapshots as checkpoints, but they must never depend on read models or any other eventually consistent state for business decisions.
 
 ### D49 — Rebuild does not force an immediate snapshot write
 
@@ -339,11 +339,11 @@ interface TaskLifecycleFactStoreService {
   }) => Effect<void, RepositoryUnavailable>;
 }
 
-interface TaskLifecycleProjectionRepositoryService {
+interface TaskLifecycleReadModelRepositoryService {
   readonly load: (query: unknown) => Effect<unknown, RepositoryUnavailable>;
 
-  readonly saveProjection: (
-    projection: unknown
+  readonly saveReadModel: (
+    readModel: unknown
   ) => Effect<void, RepositoryConflict | RepositoryUnavailable>;
 }
 ```
@@ -352,10 +352,10 @@ interface TaskLifecycleProjectionRepositoryService {
 
 - Facts are the authoritative write model
 - Aggregate snapshots are optional transactional command-side checkpoints used to speed up rebuilds
-- Projections are asynchronous read models updated from durable subscriptions
+- Read models are asynchronous internal views updated from durable subscriptions
 - `FactEnvelope.version` and `FactEnvelope.sequence` are application-facing fields; `fact_sequence`, `commit_sequence`, and `global_sequence` are persisted ordering fields derived during append
 - `create` and `append` are always fact-bearing writes; aggregate snapshots may accompany them but do not replace facts
-- Command handlers read through `loadForCommand` and never depend on projections
+- Command handlers read through `loadForCommand` and never depend on read models
 - Subscribers process facts at least once and advance checkpoints only through explicit acknowledgment after downstream persistence succeeds
 
 ## Pending subjects
